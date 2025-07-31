@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "gymnasium[box2d,other]>=1.2.0",
+    "gymnasium[box2d,other]==1.1.1",
     "ipykernel>=6.30.0",
     "jupyterlab>=4.4.5",
     "matplotlib>=3.10.3",
