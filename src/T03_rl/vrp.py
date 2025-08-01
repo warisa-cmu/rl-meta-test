@@ -10,6 +10,8 @@ class VRP:
         Mutation_rate,
         Crossover_rate,
         distance,
+        max_iteration=1000,
+        step_iteration=100,
     ):
         # Input params
         self.population_size = population_size
@@ -17,8 +19,9 @@ class VRP:
         self.bounds = bounds
         self.Mutation_rate = Mutation_rate
         self.Crossover_rate = Crossover_rate
-
+        self.max_iteration = max_iteration
         self.distance = distance
+        self.step_iteration = step_iteration
 
         # Internal params
         self.global_solution = np.array([])
@@ -26,6 +29,8 @@ class VRP:
         self.CR = Crossover_rate[0]
         self.current_cost = np.array([])
         self.kwargs = {"distance": self.distance}
+        self.current_iteration = 0
+        self.delta_F = 0.01
 
         # Derived internal
         self.population = None
@@ -47,6 +52,7 @@ class VRP:
         self.Lowerbound_Crossover_rate = self.Crossover_rate[0]
         self.F = self.Mutation_rate[0]
         self.CR = self.Crossover_rate[0]
+        self.current_iteration = 0
 
     def preserving_strategy(self, X, **kwargs):
         # distance matrix
@@ -76,6 +82,8 @@ class VRP:
         return np.array(j)
 
     def evolve(self, n_iteration):
+        self.current_iteration = self.current_iteration + n_iteration
+
         Upperbound_Mutation = self.Upperbound_Mutation
         Lowerbound_Mutation = self.Lowerbound_Mutation
         Upperbound_Crossover_rate = self.Upperbound_Crossover_rate
@@ -88,7 +96,9 @@ class VRP:
         for _ in range(max_generations):
             # print(f'Iteration {generation}')
             current_cost = np.array([])
-            self.F += (Upperbound_Mutation - Lowerbound_Mutation) / max_generations
+            self.delta_F = (Upperbound_Mutation - Lowerbound_Mutation) / max_generations
+
+            # self.F += (Upperbound_Mutation - Lowerbound_Mutation) / max_generations
             self.CR += (
                 Upperbound_Crossover_rate - Lowerbound_Crossover_rate
             ) / max_generations
@@ -132,3 +142,19 @@ class VRP:
         best_solution = population[best_index]
 
         return best_solution, self.global_solution
+
+    def get_best_solution(self):
+        return np.random.random()
+
+    def is_exceed_max_iteration(self):
+        return self.current_iteration > self.max_iteration
+
+    def change_F(self, mode):
+        if mode == "INCREASE":
+            self.F += self.delta_F
+        elif mode == "DECREASE":
+            self.F -= self.delta_F
+            if self.F < 0:
+                self.F += self.delta_F  # Return to previous value
+        else:
+            raise Exception("Invalid Option")
