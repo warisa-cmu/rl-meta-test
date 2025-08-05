@@ -10,7 +10,7 @@ class VRP:
         Mutation_rate,
         Crossover_rate,
         distance,
-        max_iteration=1000,
+        max_iteration=100,
         step_iteration=100,
     ):
         # Input params
@@ -169,9 +169,11 @@ class VRP:
     def change_F(self, mode):
         if mode == "INCREASE":
             self.F += self.delta_F
+            if self.F > 1:
+                self.F -= self.delta_F
         elif mode == "DECREASE":
             self.F -= self.delta_F
-            if self.F < 0:
+            if self.F < 0.01:
                 self.F += self.delta_F  # Return to previous value
         else:
             raise Exception("Invalid Option")
