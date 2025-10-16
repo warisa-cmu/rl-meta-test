@@ -26,6 +26,8 @@ class VRPTW:
         # DE parameter bounds (F and CR must stay within these ranges)
         F_bounds=[1e-5, 1],  ### wide range (bounds)
         CR_bounds=[1e-5, 1],  ### wide range (bounds)
+        max_iteration=1e4,
+        percent_convergence_lookback_it=100,
     ):
         # ----- Inputs -----
         self.population_size = population_size  # population size for DE
@@ -66,6 +68,7 @@ class VRPTW:
 
         # Convergence rate
         self.percent_convergence = None
+        self.percent_convergence_lookback_it = percent_convergence_lookback_it
 
         # Counting iteration
         self.count_total_iteration = None
@@ -74,6 +77,9 @@ class VRPTW:
         # Standard Deviation
         self.DE_robust = None
         self.std_pop = None
+
+        self.max_iteration = max_iteration
+        self.is_exceed_max_iteration = False
 
     # --------------------------
     # Initialize population and DE params
@@ -246,8 +252,8 @@ class VRPTW:
                     )
 
             # Track the best-so-far (scalar) after each iteration
-            self.global_solution_history.append(self.get_best_solution())
-            self.convergence_cost.append(self.get_best_solution())
+            self.global_solution_history.append(self.calc_best_solution())
+            self.convergence_cost.append(self.calc_best_solution())
 
     def migration(self):
         # Keep the top MG_rate fraction from the current population and
@@ -358,20 +364,38 @@ class VRPTW:
     # standard deviation from population in same iteration
     # -------10 Replication (Next part) ---------
 
-    def robustness(self, solution):
+    def calc_robustness(self, solution):
         #     # Return the std of current generation's fitness values.
         #     # Note: call 'evolve()' at least once so 'current_cost' is populated.
         self.DE_robust = np.std(solution)
+        return self.DE_robust
 
-    def std_population(self):
+    def calc_std_population(self):
+        # Take care of the special case where there is no calculation yet
+        if len(self.current_cost) == 0:
+            self.std_pop = 0
+            return 0
+
         self.std_pop = np.std(self.current_cost)
+        return self.std_pop
 
     # ------------------------------
     # ------------------------------
-    def convergence_rate(self, n_iteration):
-        start = self.global_solution_history[self.count_total_iteration - n_iteration]
+    def calc_convergence_rate(self, lookback_it=100):
+        # Take care of the special case where there is no history yet
+        if len(self.global_solution_history) == 0:
+            self.percent_convergence = 0
+            return 0
+
+        # Ensure we have enough history to compute the convergence rate
+        if (self.count_total_iteration - lookback_it) < 0:
+            self.percent_convergence = 0
+            return 0
+
+        start = self.global_solution_history[self.count_total_iteration - lookback_it]
         end = self.global_solution_history[-1]
-        self.percent_convergence = abs(start - end) / n_iteration
+        self.percent_convergence = abs(start - end) / lookback_it
+        return self.percent_convergence
 
     # def convegence_rate(self, current_iteration):
     #    self.percent_convergence = (self.convergence_cost[0] - self.convergence_cost[-1]) / current_iteration
@@ -386,14 +410,21 @@ class VRPTW:
     # --------------------------
     def get_current_state(self):
         # Returns DE hyper-parameters and the latest best fitness (scalar).
+
         return {
             "F": self.F_rate,
             "CR": self.CR_rate,
             "MG": self.MG_rate,
-            "Best_solution": self.global_solution_history[-1],
+            "best_solution": self.calc_best_solution(),
+            # TODO: Check this logic. This function should be called without argument.
+            "percent_convergence": self.calc_convergence_rate(),
+            "std_pop": self.calc_std_population(),
+            "count_total_iteration": self.count_total_iteration,
+            # TODO: We do not need this right now right?
+            # "DE_robust": self.calc_robustness(),
         }
 
-    def get_best_solution(self):
+    def calc_best_solution(self):
         # Evaluate and return the best fitness among current population
         # as a scalar float. (Flattens to handle 0-d arrays.)
 
@@ -407,8 +438,20 @@ class VRPTW:
 
         # Get the best objective value and the corresponding individual (solution).
         best_solution = obj_values[best_index]
-        best_position = self.population[best_index]
+        # best_position = self.population[best_index]
 
         # return best_solution, best_position
         # Note  : for some reason, the best_solution has zero dimension. I need to convert to float.
         return best_solution.flatten()[0]
+
+    def calc_is_exceed_max_iteration(self):
+        if self.count_total_iteration >= self.max_iteration:
+            self.is_exceed_max_iteration = True
+
+    # Example of reward function
+    def get_reward(self):
+        states = self.get_current_state()
+        best_solution = states["best_solution"]
+
+        reward = -best_solution  # Negative because lower fitness is better
+        return reward
