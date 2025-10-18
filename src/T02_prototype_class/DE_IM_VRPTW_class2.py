@@ -455,8 +455,12 @@ class VRPTW:
 
     # Example of reward function
     def get_reward(self):
-        states = self.get_current_state()
-        best_solution = states["best_solution"]
+        if len(self.global_solution_history) > 1:
+            current_best = self.global_solution_history[-1]
+            global_best = np.max(self.global_solution_history[:-1])
+            rw_solution = global_best - current_best
+        else:
+            rw_solution = 0
 
-        reward = -best_solution  # Negative because lower fitness is better
-        return reward
+        rw_tot = rw_solution
+        return rw_tot
