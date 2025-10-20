@@ -28,6 +28,7 @@ class VRPTW:
         CR_bounds=[1e-5, 1],  ### wide range (bounds)
         max_iteration=1e4,
         percent_convergence_lookback_it=100,
+        solution_scale_factor=1,
     ):
         # ----- Inputs -----
         self.population_size = population_size  # population size for DE
@@ -44,6 +45,7 @@ class VRPTW:
         self.vehicle = vehicle  # [num_vehicle, vehicle_per_vehicle]
 
         # ----- Internals -----
+        self.solution_scale_factor = solution_scale_factor
         self.global_solution_history = []  # best fitness per iteration
         self.current_cost = np.array([])  # fitness for the current generation
 
@@ -79,7 +81,6 @@ class VRPTW:
         self.std_pop = None
 
         self.max_iteration = max_iteration
-        self.is_exceed_max_iteration = False
 
     # --------------------------
     # Initialize population and DE params
@@ -373,15 +374,16 @@ class VRPTW:
     def calc_std_population(self):
         # Take care of the special case where there is no calculation yet
         if len(self.current_cost) == 0:
-            self.std_pop = 0
-            return 0
+            self.std_pop = 1  # Make it worse at the beginning
+            return 1
 
-        self.std_pop = np.std(self.current_cost)
+        self.std_pop = np.std(self.current_cost / self.solution_scale_factor)
         return self.std_pop
 
     # ------------------------------
     # ------------------------------
     def calc_convergence_rate(self, lookback_it=100):
+        # TODO: make percent convergence normalized.
         # Take care of the special case where there is no history yet
         if len(self.global_solution_history) == 0:
             self.percent_convergence = 0
@@ -394,7 +396,7 @@ class VRPTW:
 
         start = self.global_solution_history[self.count_total_iteration - lookback_it]
         end = self.global_solution_history[-1]
-        self.percent_convergence = abs(start - end) / lookback_it
+        self.percent_convergence = start - end / lookback_it
         return self.percent_convergence
 
     # def convegence_rate(self, current_iteration):
@@ -442,16 +444,23 @@ class VRPTW:
 
         # return best_solution, best_position
         # Note  : for some reason, the best_solution has zero dimension. I need to convert to float.
-        return best_solution.flatten()[0]
+        return best_solution.flatten()[0] / self.solution_scale_factor
 
-    def calc_is_exceed_max_iteration(self):
+    def is_terminated(self):
+        # TODO: Add patience logic similar to early stopping in deep learning.
         if self.count_total_iteration >= self.max_iteration:
-            self.is_exceed_max_iteration = True
+            return True
+        else:
+            return False
 
     # Example of reward function
     def get_reward(self):
-        states = self.get_current_state()
-        best_solution = states["best_solution"]
+        if len(self.global_solution_history) > 1:
+            current_best = self.global_solution_history[-1]
+            global_best = np.max(self.global_solution_history[:-1])
+            rw_solution = global_best - current_best
+        else:
+            rw_solution = 0
 
-        reward = -best_solution  # Negative because lower fitness is better
-        return reward
+        rw_tot = rw_solution
+        return rw_tot
