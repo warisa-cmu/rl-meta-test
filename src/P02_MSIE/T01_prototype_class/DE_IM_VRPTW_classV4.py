@@ -48,7 +48,9 @@ class VRPTW:
         # ----- Internals -----
         self.solution_scale_factor = solution_scale_factor
         self.global_solution_history = []  # best fitness per iteration
-        self.current_cost = np.array([])  # fitness for the current generation
+        self.current_cost = np.zeros(
+            shape=(self.population_size,)
+        )  # fitness for the current generation
 
         # kwargs passed into objective/preserving_strategy
         self.kwargs = {
