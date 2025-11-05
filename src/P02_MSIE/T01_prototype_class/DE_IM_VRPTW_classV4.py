@@ -27,9 +27,11 @@ class VRPTW:
         # DE parameter bounds (F and CR must stay within these ranges)
         F_bounds=[1e-5, 1],  ### wide range (bounds)
         CR_bounds=[1e-5, 1],  ### wide range (bounds)
-        max_iteration=1e4,
+        max_iteration=1e6,
         percent_convergence_lookback_it=100,
         solution_scale_factor=1,
+        patience=200,
+        interval_it=100,
     ):
         # ----- Inputs -----
         self.population_size = population_size  # population size for DE
@@ -83,7 +85,10 @@ class VRPTW:
         self.DE_robust = None
         self.std_pop = None
 
+        self.interval_it = interval_it
         self.max_iteration = max_iteration
+        self.patience = patience
+        self.patience_remaining = patience
 
     # --------------------------
     # Initialize population and DE params
@@ -103,6 +108,7 @@ class VRPTW:
         self.count_total_iteration = 0
         self.global_solution_history = []  # best fitness per iteration
         self.DE_robust = None
+        self.patience_remaining = self.patience
 
     # --------------------------
     # VRPTW cost evaluator (your original logic kept intact)
@@ -214,12 +220,12 @@ class VRPTW:
     # --------------------------
     # Main DE loop
     # --------------------------
-    def evolve(self, n_iteration):
+    def evolve(self):
         population_size = self.population_size
         bounds = self.bounds
 
         self.convergence_cost = []
-        for _ in range(n_iteration):
+        for _ in range(self.interval_it):
             self.current_cost = np.array([])
             self.count_total_iteration += 1
 
@@ -395,6 +401,10 @@ class VRPTW:
             # "DE_robust": self.calc_robustness(),
         }
 
+    def get_info(self):
+        state = self.get_current_state()
+        return {**state, "patience_remaining": self.patience_remaining}
+
     def calc_best_solution(self):
         # Evaluate and return the best fitness among current population
         # as a scalar float. (Flattens to handle 0-d arrays.)
@@ -417,7 +427,11 @@ class VRPTW:
 
     def is_terminated(self):
         # TODO: Add patience logic similar to early stopping in deep learning.
-        if self.count_total_iteration >= self.max_iteration:
+        # if self.count_total_iteration >= self.max_iteration:
+        #     return True
+        # else:
+        #     return False
+        if self.patience_remaining <= 0:
             return True
         else:
             return False
@@ -426,8 +440,12 @@ class VRPTW:
     def get_reward(self):
         if len(self.global_solution_history) > 1:
             current_best = self.global_solution_history[-1]
-            global_best = np.max(self.global_solution_history[:-1])
+            global_best = np.min(self.global_solution_history[:-1])
             rw_solution = global_best - current_best
+            if rw_solution > 0:  # Improvement found
+                self.patience_remaining = self.patience  # Reset patience
+            else:  # No improvement
+                self.patience_remaining -= self.interval_it
         else:
             rw_solution = 0
 
