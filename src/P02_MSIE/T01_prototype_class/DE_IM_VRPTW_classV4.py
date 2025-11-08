@@ -50,6 +50,9 @@ class VRPTW:
         # ----- Internals -----
         self.solution_scale_factor = solution_scale_factor
         self.global_solution_history = []  # best fitness per iteration
+        ### Add ###
+        self.rw_benchmark_solution = []
+        ######
         self.current_cost = np.zeros(
             shape=(self.population_size,)
         )  # fitness for the current generation
@@ -107,6 +110,7 @@ class VRPTW:
         self.CR_rate = (self.crossover_bounds[0] + self.crossover_bounds[1]) / 2
         self.count_total_iteration = 0
         self.global_solution_history = []  # best fitness per iteration
+        self.rw_benchmark_solution = []
         self.DE_robust = None
         self.patience_remaining = self.patience
 
@@ -163,9 +167,11 @@ class VRPTW:
                 route_dist += dist[sequence[i]][
                     sequence[i + 1]
                 ]  # Add next leg distance
+
                 route_time += (
                     service[sequence[i]] + dist[sequence[i]][sequence[i + 1]]
                 )  # Add service + travel time
+
                 weight_load += weight[sequence[i + 1]]  # Add new customer demand
 
                 if route_time < ready[sequence[i + 1]]:
@@ -264,6 +270,12 @@ class VRPTW:
             # Track the best-so-far (scalar) after each iteration
             self.global_solution_history.append(self.calc_best_solution())
             self.convergence_cost.append(self.calc_best_solution())
+            ### Add ###
+            if (self.count_total_iteration == 1) or (
+                self.count_total_iteration % 100 == 0
+            ):
+                self.rw_benchmark_solution.append(self.global_solution_history[-1])
+            ######
 
     def migration(self):
         # Keep the top MG_rate fraction from the current population and
@@ -397,6 +409,9 @@ class VRPTW:
             "percent_convergence": self.calc_convergence_rate(),
             "std_pop": self.calc_std_population(),
             "count_total_iteration": self.count_total_iteration,
+            ### add ###
+            "rw_benchmark_solution": self.rw_benchmark_solution,
+            ### add ###
             # TODO: We do not need this right now right?
             # "DE_robust": self.calc_robustness(),
         }
@@ -440,7 +455,10 @@ class VRPTW:
     def get_reward(self):
         if len(self.global_solution_history) > 1:
             current_best = self.global_solution_history[-1]
-            global_best = np.min(self.global_solution_history[:-1])
+            # global_best = np.min(self.global_solution_history[:-1])
+            ### Add ###
+            global_best = self.rw_benchmark_solution[-1]
+            ########
             rw_solution = global_best - current_best
             if rw_solution > 0:  # Improvement found
                 self.patience_remaining = self.patience  # Reset patience
