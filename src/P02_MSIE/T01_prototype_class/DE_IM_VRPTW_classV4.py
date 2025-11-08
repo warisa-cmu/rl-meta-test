@@ -272,7 +272,7 @@ class VRPTW:
             self.convergence_cost.append(self.calc_best_solution())
             ### Add ###
             if (self.count_total_iteration == 1) or (
-                self.count_total_iteration % 100 == 0
+                self.count_total_iteration % self.interval_it == 0
             ):
                 self.rw_benchmark_solution.append(self.global_solution_history[-1])
             ######
