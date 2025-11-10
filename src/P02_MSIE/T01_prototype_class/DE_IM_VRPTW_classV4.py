@@ -271,9 +271,8 @@ class VRPTW:
             self.global_solution_history.append(self.calc_best_solution())
             self.convergence_cost.append(self.calc_best_solution())
             ### Add ###
-            if (self.count_total_iteration == 1) or (
-                self.count_total_iteration % self.interval_it == 0
-            ):
+            # Add benchmark during the first iteration so that the first checkpoint can have non-zero reward.
+            if self.count_total_iteration == 1:
                 self.rw_benchmark_solution.append(self.global_solution_history[-1])
             ######
 
@@ -418,7 +417,11 @@ class VRPTW:
 
     def get_info(self):
         state = self.get_current_state()
-        return {**state, "patience_remaining": self.patience_remaining}
+        return {
+            **state,
+            "count_it": self.count_total_iteration,
+            "patience_remaining": self.patience_remaining,
+        }
 
     def calc_best_solution(self):
         # Evaluate and return the best fitness among current population
@@ -452,8 +455,11 @@ class VRPTW:
             return False
 
     # Example of reward function
-    def get_reward(self):
-        if len(self.global_solution_history) > 1:
+    def get_reward(self, store_checkpoint=False):
+        if (
+            len(self.global_solution_history) > 1
+            and len(self.rw_benchmark_solution) > 0
+        ):
             current_best = self.global_solution_history[-1]
             # global_best = np.min(self.global_solution_history[:-1])
             ### Add ###
@@ -468,6 +474,10 @@ class VRPTW:
             rw_solution = 0
 
         rw_tot = rw_solution
+        # Update benchmark if the store_checkpoint is true
+        if store_checkpoint:
+            if len(self.global_solution_history) > 0:
+                self.rw_benchmark_solution.append(self.global_solution_history[-1])
         return rw_tot
 
 
