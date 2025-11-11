@@ -11,23 +11,17 @@ from stable_baselines3 import SAC
 from P02_MSIE.T04_class_env.RL_envV2 import AIMH_ENV
 from P02_MSIE.T04_class_env.problem_sets import load_vrp
 
-LEARN_TIMESTEPS = 2000
-PROBLEM_SET = "LARGE"
-PATIENCE = 200
-POPULATION_SIZE = 4
-INTERVAL_IT = 20
-TARGET_SOLUTION = 500
-vrptw = load_vrp(
-    PROBLEM_SET=PROBLEM_SET,
-    patience=PATIENCE * 3,
-    population_size=POPULATION_SIZE,
-    interval_it=INTERVAL_IT,
-    target_solution=TARGET_SOLUTION,
-)
 
-folder = "R_20251111_201011"
-best_type = "rw"
-it = 292
+PROBLEM_SET = "LARGE"
+
+vrptw = load_vrp(
+    problem_set=PROBLEM_SET,
+)
+vrptw.patience = 1000
+
+folder = "R_20251111_204433"
+best_type = "end"
+it = 1000
 
 
 model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}")

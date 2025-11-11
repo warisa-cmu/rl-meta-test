@@ -5,15 +5,27 @@ from P02_MSIE.T04_class_env.DE_IM_VRPTW_classV7 import VRPTW
 
 
 def load_vrp(
-    PROBLEM_SET: str,
-    patience: int,
-    population_size: int,
-    interval_it: int,
-    target_solution: float,
-    target_solution_factor: float,
+    problem_set: str,
     verbose: int = 0,
 ) -> VRPTW:
-    if PROBLEM_SET == "SMALL":
+    # Set hyperparameters based on problem set
+    if problem_set == "SMALL":
+        PATIENCE = 200
+        POPULATION_SIZE = 4
+        INTERVAL_IT = 20
+        TARGET_SOLUTION = 48.0
+        TARGET_SOLUTION_FACTOR = 1e2
+    elif problem_set == "LARGE":
+        PATIENCE = 200
+        POPULATION_SIZE = 4
+        INTERVAL_IT = 10
+        TARGET_SOLUTION = 450
+        TARGET_SOLUTION_FACTOR = 1e1
+    else:
+        raise ValueError("Invalid problem_set. Choose either 'SMALL' or 'LARGE'.")
+
+    # Load data
+    if problem_set == "SMALL":
         distance = (
             pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="distance")
             .fillna(9999999)
@@ -31,7 +43,7 @@ def load_vrp(
             r"./src/Source/rl_meta_test_data.xlsx", sheet_name="customer"
         ).iloc[:, 3:]
 
-    elif PROBLEM_SET == "LARGE":
+    elif problem_set == "LARGE":
         distance = (
             pd.read_excel(
                 r"./src/Source/rl_meta_test_data_25_customer.xlsx",
@@ -56,7 +68,7 @@ def load_vrp(
             sheet_name="customer",
         ).iloc[:, 3:]
     else:
-        raise ValueError("Invalid PROBLEM_SET. Choose either 'SMALL' or 'LARGE'.")
+        raise ValueError("Invalid problem_set. Choose either 'SMALL' or 'LARGE'.")
 
     demand = df_101.iloc[:, 0].to_numpy()
     readyTime = df_101.iloc[:, 1].to_numpy()
@@ -65,7 +77,7 @@ def load_vrp(
     dimensions = len(distance) - 1 + vehicle[0]
     bounds = np.array([[0, 1]] * dimensions)
     vrptw = VRPTW(
-        population_size=population_size,
+        population_size=POPULATION_SIZE,
         dimensions=dimensions,
         bounds=bounds,
         distance=distance,
@@ -74,10 +86,10 @@ def load_vrp(
         dueDate=dueDate,
         serviceTime=serviceTime,
         vehicle=vehicle,
-        interval_it=interval_it,
-        patience=patience,
-        target_solution=target_solution,
-        target_solution_factor=target_solution_factor,
+        interval_it=INTERVAL_IT,
+        patience=PATIENCE,
+        target_solution=TARGET_SOLUTION,
+        target_solution_factor=TARGET_SOLUTION_FACTOR,
         verbose=verbose,
     )
     return vrptw
