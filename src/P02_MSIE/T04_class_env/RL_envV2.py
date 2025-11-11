@@ -46,7 +46,8 @@ class AIMH_ENV(gym.Env):
         #     "std_pop",
         #     "total_iteration",
         #     "best_trial_fitness",
-        #     "std_trial_fitness"
+        #     "std_trial_fitness",
+        #     "patience_ratio"
         # ]
         self.observation_space = gym.spaces.Box(
             low=np.array(
@@ -60,6 +61,7 @@ class AIMH_ENV(gym.Env):
                     0,  # total_iteration lower bound
                     0,  # best_trial_fitness lower bound
                     0,  # std_trial_fitness lower bound
+                    0,  # patience_ratio lower bound
                 ],
                 dtype=np.float32,
             ),
@@ -74,10 +76,11 @@ class AIMH_ENV(gym.Env):
                     MAX_ITERATION,
                     SOL_UPPER_BOUND,  # best_trial_fitness upper bound
                     VAL_INVALID_STD_POPULATION,  # std_trial_fitness upper bound
+                    1,  # patience_ratio upper bound
                 ],
                 dtype=np.float32,
             ),
-            shape=(9,),  # 9 features
+            shape=(10,),  # 10 features
             dtype=np.float32,
         )
         self.vrp = vrp
@@ -97,6 +100,7 @@ class AIMH_ENV(gym.Env):
                 state["total_iteration"],
                 state["best_trial_fitness"],
                 state["std_trial_fitness"],
+                state["patience_ratio"],
             ],
             dtype=np.float32,
         )

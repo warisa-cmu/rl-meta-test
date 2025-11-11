@@ -409,6 +409,7 @@ class VRPTW:
             "total_iteration": self.idx_iteration + 1,
             "best_trial_fitness": self.calc_best_solution(type="trial"),
             "std_trial_fitness": self.calc_std(type="trial"),
+            "patience_ratio": self.patience_remaining / self.patience,
             # "DE_robust": self.calc_robustness(), # Not used for now
         }
 
@@ -447,7 +448,7 @@ class VRPTW:
             else:
                 return False
 
-    def get_reward(self, mode="TARGET_ENHANCED_1"):
+    def get_reward(self, mode="TARGET_ENHANCED_2"):
         # Take care of the special case where there is not enough history yet
         if len(self.global_solution_history) < 2 or len(self.fitness_trial_history) < 2:
             return 0
@@ -491,6 +492,31 @@ class VRPTW:
                 )
             reward = improvement + alpha * close_to_target
             return reward
+        elif mode == "TARGET_ENHANCED_2":
+            epsilon = 1e-6  # Prevent division by zero
+            alpha = self.target_solution_weight
+            improvement = (
+                self.global_solution_history[start_it]
+                - self.global_solution_history[self.idx_iteration]
+            )
+            value = self.global_solution_history[-1]
+            close_to_target = 1 / (
+                np.abs(value - self.target_solution) / self.solution_scale_factor
+                + epsilon
+            )
+            reward = improvement + alpha * close_to_target
+
+            # Scaled by patience
+            p = float(np.clip(self.patience_remaining / self.patience, 0.0, 1.0))
+            # TODO: Tune alpha_p
+            alpha_p = 2.0  # Scaling factor for patience effect
+            p_factor = max(0, np.exp(-alpha_p * (1.0 - p)))
+
+            if self.verbose > 0:
+                print(
+                    f"Improvement: {improvement}, Close to target: {close_to_target * alpha}, reward before patience scaling: {reward}, p_factor: {p_factor}, reward after scaling: {reward * p_factor}"
+                )
+            return reward * p_factor
         else:
             raise Exception("Invalid Option")
 
