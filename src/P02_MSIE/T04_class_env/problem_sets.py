@@ -14,13 +14,15 @@ def load_vrp(
         POPULATION_SIZE = 4
         INTERVAL_IT = 20
         TARGET_SOLUTION = 48.0
-        TARGET_SOLUTION_FACTOR = 1e2
+        TARGET_SOLUTION_WEIGHT = 1
+        SOLUTION_SCALE_FACTOR = 1
     elif problem_set == "LARGE":
         PATIENCE = 200
         POPULATION_SIZE = 4
         INTERVAL_IT = 10
         TARGET_SOLUTION = 450
-        TARGET_SOLUTION_FACTOR = 1e1
+        TARGET_SOLUTION_WEIGHT = 1
+        SOLUTION_SCALE_FACTOR = 500
     else:
         raise ValueError("Invalid problem_set. Choose either 'SMALL' or 'LARGE'.")
 
@@ -89,7 +91,8 @@ def load_vrp(
         interval_it=INTERVAL_IT,
         patience=PATIENCE,
         target_solution=TARGET_SOLUTION,
-        target_solution_factor=TARGET_SOLUTION_FACTOR,
+        target_solution_weight=TARGET_SOLUTION_WEIGHT,
         verbose=verbose,
+        solution_scale_factor=SOLUTION_SCALE_FACTOR,
     )
     return vrptw

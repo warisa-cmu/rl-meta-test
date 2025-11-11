@@ -19,7 +19,7 @@ vrptw = load_vrp(
 )
 vrptw.patience = 1000
 
-folder = "R_20251111_204433"
+folder = "R_20251111_210321"
 best_type = "end"
 it = 1000
 

@@ -38,7 +38,7 @@ class VRPTW:
         patience=200,
         interval_it=100,
         target_solution=0,
-        target_solution_factor=1,
+        target_solution_weight=1,
         verbose=0,
     ):
         # ----- Inputs -----
@@ -56,7 +56,6 @@ class VRPTW:
         self.vehicle = vehicle  # [num_vehicle, vehicle_per_vehicle]
 
         # ----- Internals -----
-        self.solution_scale_factor = solution_scale_factor
         self.global_solution_history = []  # best fitness per iteration
         self.fitness_trial_history = []  # fitness of trial solutions
         self.current_cost = None
@@ -93,7 +92,8 @@ class VRPTW:
 
         # Target solution
         self.target_solution = target_solution
-        self.target_solution_factor = target_solution_factor
+        self.target_solution_weight = target_solution_weight
+        self.solution_scale_factor = solution_scale_factor
 
         self.verbose = verbose  # Verbosity level
 
@@ -475,18 +475,21 @@ class VRPTW:
             return reward_ave
         elif mode == "TARGET_ENHANCED_1":
             epsilon = 1e-6  # Prevent division by zero
-            alpha = self.target_solution_factor
+            alpha = self.target_solution_weight
             improvement = (
                 self.global_solution_history[start_it]
                 - self.global_solution_history[self.idx_iteration]
             )
             value = self.global_solution_history[-1]
-            close_to_target = 1 / (np.abs(value - self.target_solution) + epsilon)
+            close_to_target = 1 / (
+                np.abs(value - self.target_solution) / self.solution_scale_factor
+                + epsilon
+            )
             if self.verbose > 0:
                 print(
-                    f"Improvement: {improvement / alpha}, Close to target: {close_to_target}"
+                    f"Improvement: {improvement}, Close to target: {close_to_target * alpha}"
                 )
-            reward = improvement / alpha + close_to_target
+            reward = improvement + alpha * close_to_target
             return reward
         else:
             raise Exception("Invalid Option")
