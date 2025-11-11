@@ -1,3 +1,2 @@
 - Symmetric action space and normalize
-- Better state representation
 - Should I use different seeds for the starting solution?
