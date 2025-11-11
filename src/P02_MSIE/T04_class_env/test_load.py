@@ -8,65 +8,26 @@ from rich.console import Console
 from rich.table import Table
 from stable_baselines3 import SAC
 
-from P02_MSIE.T04_class_env.DE_IM_VRPTW_classV7 import (
-    VRPTW,
-)
 from P02_MSIE.T04_class_env.RL_envV2 import AIMH_ENV
+from P02_MSIE.T04_class_env.problem_sets import load_vrp
 
-distance = (
-    pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="distance")
-    .fillna(9999999)
-    .to_numpy()
+LEARN_TIMESTEPS = 2000
+PROBLEM_SET = "LARGE"
+PATIENCE = 200
+POPULATION_SIZE = 4
+INTERVAL_IT = 20
+TARGET_SOLUTION = 500
+vrptw = load_vrp(
+    PROBLEM_SET=PROBLEM_SET,
+    patience=PATIENCE * 3,
+    population_size=POPULATION_SIZE,
+    interval_it=INTERVAL_IT,
+    target_solution=TARGET_SOLUTION,
 )
 
-df_vehicle = (
-    pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="vehicle")
-    .iloc[:, :2]
-    .to_numpy(dtype=int)
-)
-vehicle = df_vehicle[0]
-
-df_101 = pd.read_excel(
-    r"./src/Source/rl_meta_test_data.xlsx", sheet_name="customer"
-).iloc[:, 3:]
-demand = df_101.iloc[:, 0].to_numpy()
-readyTime = df_101.iloc[:, 1].to_numpy()
-dueDate = df_101.iloc[:, 2].to_numpy()
-serviceTime = df_101.iloc[:, -1].to_numpy()
-
-kwargs = {
-    "distance": distance,
-    "demand": demand,
-    "readyTime": readyTime,
-    "dueDate": dueDate,
-    "serviceTime": serviceTime,
-    "vehicle": vehicle,
-}
-dimensions = len(distance) - 1 + vehicle[0]
-interval_it = 20
-patience = 4000
-population_size = 4
-bounds = np.array([[0, 1]] * dimensions)
-
-vrptw = VRPTW(
-    population_size=population_size,
-    dimensions=dimensions,
-    bounds=bounds,
-    distance=distance,
-    demand=demand,
-    readyTime=readyTime,
-    dueDate=dueDate,
-    serviceTime=serviceTime,
-    vehicle=vehicle,
-    interval_it=interval_it,
-    patience=patience,
-    target_solution=48,
-)
-
-
-folder = "R_20251111_125041"
+folder = "R_20251111_201011"
 best_type = "rw"
-it = 1014
+it = 292
 
 
 model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}")
