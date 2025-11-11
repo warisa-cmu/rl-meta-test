@@ -1,4 +1,4 @@
 - Environment has issues: The first element returned by `env.reset()` is not within the observation space.
 - Symmetric action space and normalize
 - Better state representation
-- Seeding issues.
+- Should I use different seeds for the starting solution?

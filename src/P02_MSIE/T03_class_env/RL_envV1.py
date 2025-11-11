@@ -75,6 +75,7 @@ class AIMH_ENV(gym.Env):
             dtype=np.float32,
         )
         self.vrp = vrp
+        self.verbose = 0
         pass
 
     def _get_obs(self):
@@ -103,8 +104,9 @@ class AIMH_ENV(gym.Env):
         return self.vrp.get_info()
 
     def reset(self, seed=None, options=None):
-        # np.random.seed(seed or 42)
-        self.vrp.reset()
+        if self.verbose > 0:
+            print(f"Environment reset with seed: {seed}")
+        self.vrp.reset(seed=seed)
         super().reset(seed=seed)
         observation = self._get_obs()
         info = self._get_info()

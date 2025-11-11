@@ -64,15 +64,14 @@ vrptw = VRPTW(
 )
 
 
-# folder = "R_20251111_120311"
-folder = "R_20251111_122008"
-best_type = "val"
-it = 68
+folder = "R_20251111_120311"
+best_type = "rw"
+it = 691
 
 
 model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}")
 env = AIMH_ENV(vrp=vrptw)
-obs, info = env.reset()
+obs, info = env.reset(seed=42)
 terminated = False
 truncated = False
 data_array = []
