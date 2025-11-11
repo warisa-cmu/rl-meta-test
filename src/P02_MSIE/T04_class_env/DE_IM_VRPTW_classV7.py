@@ -38,6 +38,8 @@ class VRPTW:
         patience=200,
         interval_it=100,
         target_solution=0,
+        target_solution_factor=1,
+        verbose=0,
     ):
         # ----- Inputs -----
         self.population_size = population_size  # population size for DE
@@ -91,6 +93,9 @@ class VRPTW:
 
         # Target solution
         self.target_solution = target_solution
+        self.target_solution_factor = target_solution_factor
+
+        self.verbose = verbose  # Verbosity level
 
     # --------------------------
     # Initialize population and DE params
@@ -470,15 +475,18 @@ class VRPTW:
             return reward_ave
         elif mode == "TARGET_ENHANCED_1":
             epsilon = 1e-6  # Prevent division by zero
-            # TODO: Make this parameter an input to the class
-            alpha = 100.0
+            alpha = self.target_solution_factor
             improvement = (
                 self.global_solution_history[start_it]
                 - self.global_solution_history[self.idx_iteration]
             )
             value = self.global_solution_history[-1]
             close_to_target = 1 / (np.abs(value - self.target_solution) + epsilon)
-            reward = improvement + alpha * close_to_target
+            if self.verbose > 0:
+                print(
+                    f"Improvement: {improvement / alpha}, Close to target: {close_to_target}"
+                )
+            reward = improvement / alpha + close_to_target
             return reward
         else:
             raise Exception("Invalid Option")

@@ -10,6 +10,8 @@ def load_vrp(
     population_size: int,
     interval_it: int,
     target_solution: float,
+    target_solution_factor: float,
+    verbose: int = 0,
 ) -> VRPTW:
     if PROBLEM_SET == "SMALL":
         distance = (
@@ -75,5 +77,7 @@ def load_vrp(
         interval_it=interval_it,
         patience=patience,
         target_solution=target_solution,
+        target_solution_factor=target_solution_factor,
+        verbose=verbose,
     )
     return vrptw

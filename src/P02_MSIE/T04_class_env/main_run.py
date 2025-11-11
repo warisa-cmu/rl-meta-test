@@ -13,15 +13,17 @@ from P02_MSIE.T04_class_env.problem_sets import load_vrp
 # POPULATION_SIZE = 4
 # INTERVAL_IT = 20
 # TARGET_SOLUTION = 48.0
+# TARGET_SOLUTION_FACTOR = 1e2
+# VERBOSE = 0
 
-
-LEARN_TIMESTEPS = 2000
+LEARN_TIMESTEPS = 10000
 PROBLEM_SET = "LARGE"
 PATIENCE = 200
 POPULATION_SIZE = 4
 INTERVAL_IT = 20
-TARGET_SOLUTION = 500
-
+TARGET_SOLUTION = 450
+TARGET_SOLUTION_FACTOR = 1e4
+VERBOSE = 0
 
 vrptw = load_vrp(
     PROBLEM_SET=PROBLEM_SET,
@@ -29,6 +31,8 @@ vrptw = load_vrp(
     population_size=POPULATION_SIZE,
     interval_it=INTERVAL_IT,
     target_solution=TARGET_SOLUTION,
+    target_solution_factor=TARGET_SOLUTION_FACTOR,
+    verbose=VERBOSE,
 )
 
 
