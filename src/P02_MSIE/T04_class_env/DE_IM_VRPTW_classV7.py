@@ -509,7 +509,7 @@ class VRPTW:
             # Scaled by patience
             p = float(np.clip(self.patience_remaining / self.patience, 0.0, 1.0))
             # TODO: Tune alpha_p
-            alpha_p = 2.0  # Scaling factor for patience effect
+            alpha_p = 10  # Scaling factor for patience effect
             p_factor = max(0, np.exp(-alpha_p * (1.0 - p)))
 
             if self.verbose > 0:

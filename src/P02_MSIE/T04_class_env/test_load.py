@@ -17,11 +17,11 @@ PROBLEM_SET = "LARGE"
 vrptw = load_vrp(
     problem_set=PROBLEM_SET,
 )
-vrptw.patience = 2000
+vrptw.patience = vrptw.patience * 6
 
-folder = "R_20251111_211446"
-best_type = "val"
-it = 478
+folder = "R_20251111_215913"
+best_type = "end"
+it = 3000
 
 
 model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}")
