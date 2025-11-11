@@ -1,7 +1,8 @@
+import time
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import time
 
 SOL_UPPER_BOUND = 1e6
 VAL_INVALID_STD_POPULATION = 100  # Large value indicating invalid std population
@@ -99,7 +100,7 @@ class VRPTW:
     # --------------------------
     def reset(self, seed=42):
         # Random uniform initialization within per-gene bounds
-        print(f"Seed used in reset: {seed}")
+        # print(f"Seed used in reset: {seed}")
         np.random.seed(seed)  # For reproducibility
         self.population = np.random.uniform(
             self.bounds[:, 0],
@@ -470,7 +471,7 @@ class VRPTW:
                 self.global_solution_history[start_it]
                 - self.global_solution_history[self.idx_iteration]
             )
-            value = self.fitness_trial_history[-1]
+            value = self.global_solution_history[-1]
             close_to_target = 1 / (np.abs(value - self.target_solution) + epsilon)
             reward = improvement + alpha * close_to_target
             return reward

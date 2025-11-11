@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 import gymnasium as gym
@@ -12,7 +13,6 @@ from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.monitor import Monitor
-
 from P02_MSIE.T03_class_env.DE_IM_VRPTW_classV6 import (
     CR_LOWER_BOUND,
     CR_UPPER_BOUND,
@@ -125,48 +125,90 @@ class AIMH_ENV(gym.Env):
         return observation, reward, terminated, truncated, info
 
 
-class CustomLoggerCallback(BaseCallback):
-    def __init__(self, verbose=0):
+class CustomCallback(BaseCallback):
+    def __init__(self, check_freq: int, save_dir: str, date_prefix: str, verbose=1):
         super().__init__(verbose)
-        self.log_frequency = 2  # Log every n steps
+        self.check_freq = check_freq
+        self.date_prefix = (
+            date_prefix if date_prefix else datetime.now().strftime("%Y%m%d_%H%M%S")
+        )
+        self.save_dir = f"{save_dir}/R_{self.date_prefix}"
+        self.best_global_value = np.inf
+        self.best_reward = -np.inf
+
+    def _init_callback(self):
+        if self.save_dir is not None:
+            os.makedirs(self.save_dir, exist_ok=True)
 
     def _on_step(self) -> bool:
-        if self.n_calls % self.log_frequency == 0:
-            # Access internal model state and log desired values
-            # For example, log the current learning rate:
-            # self.logger.record(
-            #     "train/learning_rate", self.model.lr_schedule(self.progress_remaining)
-            # )
+        if self.n_calls % self.check_freq == 0:
+            # Check if the episode is done
+            if self.locals["dones"][0]:
+                self.save_model()
+            # self.custom_log()
+        return True
 
-            # You can also access information from the environment or other sources
-            # self.logger.record("custom_metric/my_value", some_calculated_value)
+    def save_model(self):
+        infos = self.locals["infos"][0]
+        if "episode" not in infos.keys() or "best_solution" not in infos.keys():
+            print("No episode or best_solution info found.")
+            return
 
-            # Access current observation
-            current_obs = self.locals["new_obs"]
-            self.logger.record("env/current_observation", current_obs)
+        global_value = infos["best_solution"]
+        episode_reward = infos["episode"]["r"]
+        episode_length = infos["episode"]["l"]
 
-            # Access current reward
-            current_reward = self.locals["rewards"]
-            self.logger.record("env/current_reward", current_reward)
+        if episode_reward > self.best_reward:
+            self.best_reward = episode_reward
+            self.model.save(f"{self.save_dir}/rw_{self.num_timesteps:05d}")
+            if self.verbose > 0:
+                print(
+                    f"New best reward: {self.best_reward} at step {self.num_timesteps}",
+                )
+                self.print_info(global_value, episode_reward, episode_length)
+        if global_value < self.best_global_value:
+            self.best_global_value = global_value
+            self.model.save(f"{self.save_dir}/val_{self.num_timesteps:05d}")
+            if self.verbose > 0:
+                print(
+                    f"New best model saved with best global value: {self.best_global_value} at step {self.num_timesteps}",
+                )
+                self.print_info(global_value, episode_reward, episode_length)
 
-            # Access done status
-            is_done = self.locals["dones"]
-            self.logger.record("env/is_done", is_done)
+    def print_info(self, global_value, episode_reward, episode_length):
+        print(
+            f"Step: {self.num_timesteps}, Episode Length: {episode_length}, Episode Reward: {episode_reward}, Best Global Value: {global_value}"
+        )
+        print("----------------------------------------")
 
-            # Access info dictionary
-            info_dict = self.locals["infos"]
-            self.logger.record("env/info_dict", str(info_dict))
+    def custom_log(self):
+        self.logger.record(
+            "train/learning_rate", self.model.lr_schedule(self.progress_remaining)
+        )
+        current_obs = self.locals["new_obs"]
+        current_reward = self.locals["rewards"]
+        is_done = self.locals["dones"]
+        info_dict = self.locals["infos"]
 
-            # TODO: Not working yet - log mean episode reward
-            if "rollout/ep_rew_mean" in self.logger.name_to_value:
-                mean_reward = self.logger.name_to_value["rollout/ep_rew_mean"]
-                self.logger.record("env/mean_reward", mean_reward)
+        self.logger.record("env/current_observation", current_obs)
+        self.logger.record("env/current_reward", current_reward)
+        self.logger.record("env/is_done", is_done)
+        self.logger.record("env/info_dict", str(info_dict))
 
-            self.logger.dump(self.num_timesteps)
-        return True  # Return True to continue training
+        # TODO: Not working yet
+        if "rollout/ep_rew_mean" in self.logger.name_to_value:
+            mean_reward = self.logger.name_to_value["rollout/ep_rew_mean"]
+            self.logger.record("env/mean_reward", mean_reward)
+        # self.logger.dump(self.num_timesteps)
+
+    def _on_training_end(self) -> None:
+        self.model.save(f"{self.save_dir}/end_{self.num_timesteps:05d}")
+        print("Simulation/Training has finished. Executing final callback code.")
+        # Perform final data logging, cleanup, or post-processing here
 
 
 if __name__ == "__main__":
+    LEARN_TIMESTEPS = 100
     distance = (
         pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="distance")
         .fillna(9999999)
@@ -198,7 +240,7 @@ if __name__ == "__main__":
     }
     dimensions = len(distance) - 1 + vehicle[0]
     interval_it = 20
-    patience = 100
+    patience = 200
     population_size = 4
     bounds = np.array([[0, 1]] * dimensions)
 
@@ -214,16 +256,20 @@ if __name__ == "__main__":
         vehicle=vehicle,
         interval_it=interval_it,
         patience=patience,
-        target_solution=40,
+        target_solution=48,
     )
 
-    log_path = "./logs"
+    log_dir = "./logs"
+    os.makedirs(log_dir, exist_ok=True)
     date_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_filepath = f"{log_dir}/{date_prefix}_training.log"
+    csv_filepath_default = f"{log_dir}/progress.csv"
+    monitor_filepath = f"{log_dir}/{date_prefix}_monitor.csv"
 
     env = AIMH_ENV(vrp=vrptw)
     env = Monitor(
         env,
-        filename=f"{log_path}/{date_prefix}_monitor.csv",
+        filename=monitor_filepath,
     )
 
     # This will catch many common issues
@@ -235,10 +281,16 @@ if __name__ == "__main__":
     model = SAC("MlpPolicy", env, verbose=1)
 
     # Set up custom logger
-    new_logger = configure(log_path, format_strings=["stdout", "csv"])
-    model.set_logger(new_logger)
-    # model.learn(total_timesteps=10, callback=CustomLoggerCallback())
-    model.learn(total_timesteps=1000)
+    # custom_csv_format = CSVOutputFormat(csv_filepath)
+    # logger_custom = configure(log_dir, format_strings=["stdout", "csv"])
+    logger_custom = configure(log_dir, format_strings=["csv"])
+    # logger_custom.with_formats(custom_csv_format)
+    model.set_logger(logger_custom)
+    # model.learn(total_timesteps=100)
+    custom_callback = CustomCallback(
+        check_freq=1, save_dir="./save_models", date_prefix=date_prefix
+    )
+    model.learn(total_timesteps=LEARN_TIMESTEPS, callback=custom_callback)
 
     obs, info = env.reset()
     terminated = False
@@ -274,3 +326,15 @@ if __name__ == "__main__":
     )
     ax.legend()
     plt.show()
+
+    # Rename the default CSV log file to include a timestamp
+    # Does not work because file is being used by another process
+    # try:
+    #     os.rename(csv_filepath_default, csv_filepath)
+    #     print(
+    #         f"File '{csv_filepath_default}' renamed to '{csv_filepath}' successfully."
+    #     )
+    # except FileNotFoundError:
+    #     print(f"Error: File '{csv_filepath_default}' not found.")
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
