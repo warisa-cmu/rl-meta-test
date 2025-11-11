@@ -17,7 +17,7 @@ def load_vrp(
         TARGET_SOLUTION_WEIGHT = 1
         SOLUTION_SCALE_FACTOR = 1
     elif problem_set == "LARGE":
-        PATIENCE = 200
+        PATIENCE = 400
         POPULATION_SIZE = 4
         INTERVAL_IT = 10
         TARGET_SOLUTION = 450
