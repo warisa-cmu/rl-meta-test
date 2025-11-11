@@ -19,9 +19,9 @@ vrptw = load_vrp(
 )
 vrptw.patience = vrptw.patience * 6
 
-folder = "R_20251111_215913"
-best_type = "end"
-it = 3000
+folder = "R_20251111_221208"
+best_type = "rw"
+it = 1492
 
 
 model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}")

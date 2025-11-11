@@ -8,7 +8,7 @@ from P02_MSIE.T04_class_env.RL_envV2 import AIMH_ENV, CustomCallback
 from P02_MSIE.T04_class_env.problem_sets import load_vrp
 
 
-LEARN_TIMESTEPS = 3000
+LEARN_TIMESTEPS = 5000
 PROBLEM_SET = "LARGE"
 
 vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=0)

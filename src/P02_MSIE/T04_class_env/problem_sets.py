@@ -20,7 +20,7 @@ def load_vrp(
         PATIENCE = 400
         POPULATION_SIZE = 4
         INTERVAL_IT = 10
-        TARGET_SOLUTION = 450
+        TARGET_SOLUTION = 300
         TARGET_SOLUTION_WEIGHT = 1
         SOLUTION_SCALE_FACTOR = 500
     else:
