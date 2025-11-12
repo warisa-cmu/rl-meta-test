@@ -19,6 +19,18 @@ vrptw = load_vrp(
 )
 vrptw.patience = vrptw.patience
 
+# folder = "R_20251112_093528"
+# best_type = "end"
+# it = 20000
+
+# folder = "R_20251112_094639"
+# best_type = "end"
+# it = 20000
+
+# folder = "R_20251112_095513"
+# best_type = "end"
+# it = 20000
+
 folder = "R_20251112_100204"
 best_type = "end"
 it = 20000

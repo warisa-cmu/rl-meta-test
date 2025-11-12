@@ -1,2 +1,0 @@
-- Symmetric action space and normalize
-- Should I use different seeds for the starting solution?
