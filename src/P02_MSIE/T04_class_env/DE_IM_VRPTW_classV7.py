@@ -321,6 +321,14 @@ class VRPTW:
         # Adopt the migrated population
         self.population = new_pop
 
+        # Udpate current cost
+        for obj in range(self.population_size):
+            self.current_cost[obj] = self.objective_func(
+                self.population[obj], **self.kwargs
+            )
+        # Reset Patience
+        self.patience_remaining = self.patience
+
     # --------------------------
     # Adjust migration rate
     # --------------------------
@@ -562,13 +570,18 @@ if __name__ == "__main__":
         dueDate=dueDate,
         serviceTime=serviceTime,
         vehicle=vehicle,
-        target_solution=40,
+        target_solution_unscaled=40,
+        solution_scale_factor=1,
+        alpha_target=10,
+        alpha_patience=5,
+        verbose=1,
     )
 
     vrptw.reset()
     start = time.time()
     for i in range(10):
         vrptw.evolve()
+        vrptw.migration()
         vrptw.get_reward()
         vrptw.calc_convergence_rate()
 
