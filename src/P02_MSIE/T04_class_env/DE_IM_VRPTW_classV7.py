@@ -37,8 +37,9 @@ class VRPTW:
         solution_scale_factor=1,
         patience=200,
         interval_it=100,
-        target_solution=0,
-        target_solution_weight=1,
+        target_solution_unscaled=0,
+        alpha_target=1,
+        alpha_patience=1,
         verbose=0,
     ):
         # ----- Inputs -----
@@ -91,10 +92,12 @@ class VRPTW:
         self.patience_remaining = patience
 
         # Target solution
-        self.target_solution = target_solution
-        self.target_solution_weight = target_solution_weight
         self.solution_scale_factor = solution_scale_factor
+        self.target_solution_unscaled = target_solution_unscaled
+        self.target_solution = target_solution_unscaled / self.solution_scale_factor
 
+        self.alpha_target = alpha_target
+        self.alpha_patience = alpha_patience
         self.verbose = verbose  # Verbosity level
 
     # --------------------------
@@ -474,49 +477,38 @@ class VRPTW:
             diff_array = np.array(best_solution) - np.array(trial_solution)
             reward_ave = np.sum(diff_array) / self.interval_it
             return reward_ave
-        elif mode == "TARGET_ENHANCED_1":
-            epsilon = 1e-6  # Prevent division by zero
-            alpha = self.target_solution_weight
+        elif mode in ["TARGET_ENHANCED_1", "TARGET_ENHANCED_2"]:
+            epsilon_target = 1e-6  # Prevent division by zero
             improvement = (
                 self.global_solution_history[start_it]
                 - self.global_solution_history[self.idx_iteration]
             )
             value = self.global_solution_history[-1]
             close_to_target = 1 / (
-                np.abs(value - self.target_solution) / self.solution_scale_factor
-                + epsilon
+                np.abs(value - self.target_solution) + epsilon_target
             )
             if self.verbose > 0:
                 print(
-                    f"Improvement: {improvement}, Close to target: {close_to_target * alpha}"
+                    f"Improvement: {improvement}, Close to target: {close_to_target * self.alpha_target}"
                 )
-            reward = improvement + alpha * close_to_target
-            return reward
-        elif mode == "TARGET_ENHANCED_2":
-            epsilon = 1e-6  # Prevent division by zero
-            alpha = self.target_solution_weight
-            improvement = (
-                self.global_solution_history[start_it]
-                - self.global_solution_history[self.idx_iteration]
-            )
-            value = self.global_solution_history[-1]
-            close_to_target = 1 / (
-                np.abs(value - self.target_solution) / self.solution_scale_factor
-                + epsilon
-            )
-            reward = improvement + alpha * close_to_target
+            reward_1 = improvement + self.alpha_target * close_to_target
 
-            # Scaled by patience
-            p = float(np.clip(self.patience_remaining / self.patience, 0.0, 1.0))
-            # TODO: Tune alpha_p
-            alpha_p = 10  # Scaling factor for patience effect
-            p_factor = max(0, np.exp(-alpha_p * (1.0 - p)))
+            if mode == "TARGET_ENHANCED_1":
+                return reward_1
+            elif mode == "TARGET_ENHANCED_2":
+                # Reset patience if there is an improvement between start_it and current
+                if improvement > 0:
+                    self.patience_remaining = self.patience  # Reset patience
 
-            if self.verbose > 0:
-                print(
-                    f"Improvement: {improvement}, Close to target: {close_to_target * alpha}, reward before patience scaling: {reward}, p_factor: {p_factor}, reward after scaling: {reward * p_factor}"
-                )
-            return reward * p_factor
+                # Scaled by patience
+                p = float(np.clip(self.patience_remaining / self.patience, 0.0, 1.0))
+                patience_factor = max(0, np.exp(-self.alpha_patience * (1.0 - p)))
+                reward_2 = reward_1 * patience_factor
+                if self.verbose > 0:
+                    print(
+                        f"Improvement: {improvement}, Close to target: {close_to_target * self.alpha_target}, Reward before: {reward_1}, p_factor: {patience_factor}, Reward after: {reward_2}"
+                    )
+                return reward_2
         else:
             raise Exception("Invalid Option")
 

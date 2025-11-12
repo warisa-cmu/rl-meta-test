@@ -17,25 +17,29 @@ PROBLEM_SET = "LARGE"
 vrptw = load_vrp(
     problem_set=PROBLEM_SET,
 )
-vrptw.patience = vrptw.patience * 6
+vrptw.patience = vrptw.patience
 
-folder = "R_20251111_221208"
-best_type = "rw"
-it = 1492
+folder = "R_20251112_100204"
+best_type = "end"
+it = 20000
 
 
 model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}")
 env = AIMH_ENV(vrp=vrptw)
-obs, info = env.reset(seed=42)
+obs, info = env.reset(seed=0)
 terminated = False
 truncated = False
 data_array = []
+
+reward_total = 0
 while not (terminated or truncated):
     action, _ = model.predict(obs, deterministic=True)
     obs, reward, terminated, truncated, info = env.step(action)
+    reward_total += reward
     data_added = {**info, "reward": reward, "action": action}
     data_array.append(data_added)
 df = pd.DataFrame.from_dict(data_array)
+best_solution = df["best_solution"].min() * vrptw.solution_scale_factor
 datetime_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 os.makedirs("_tmp", exist_ok=True)
@@ -57,7 +61,12 @@ ax.plot(x, y2, marker=".", label="Fitness Trial")
 ax.set(
     xlabel="iteration",
     ylabel="Total Distance (Km.)",
-    title="Differential Evoluation + Island Model Algorithm Replication",
+    title=f"Reward Total: {reward_total:.2f}, Best Solution: {best_solution:.2f}",
 )
 ax.legend()
 plt.show()
+
+# Save the vrptw object
+# import pickle
+# with open(f"_tmp/vrp_{datetime_now}.pkl", "wb") as f:
+#     pickle.dump(vrptw, f)

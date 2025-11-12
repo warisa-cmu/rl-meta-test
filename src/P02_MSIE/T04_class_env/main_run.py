@@ -8,12 +8,18 @@ from P02_MSIE.T04_class_env.RL_envV2 import AIMH_ENV, CustomCallback
 from P02_MSIE.T04_class_env.problem_sets import load_vrp
 
 
-LEARN_TIMESTEPS = 5000
+# RUN_TYPE = "NEW"
+# LEARN_TIMESTEPS = 20000
+# PROBLEM_SET = "LARGE"
+
+RUN_TYPE = "LOAD"
+LEARN_TIMESTEPS = 20000
 PROBLEM_SET = "LARGE"
+LOAD_FOLDER = "R_20251112_095513"
+LOAD_BEST_TYPE = "end"
+LOAD_IT = 20000
 
 vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=0)
-
-
 log_dir = "./logs"
 os.makedirs(log_dir, exist_ok=True)
 date_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -26,7 +32,15 @@ env = Monitor(
     env,
     filename=monitor_filepath,
 )
-model = SAC("MlpPolicy", env, verbose=1)
+
+if RUN_TYPE == "NEW":
+    model = SAC("MlpPolicy", env, verbose=1)
+elif RUN_TYPE == "LOAD":
+    folder = LOAD_FOLDER
+    best_type = LOAD_BEST_TYPE
+    it = LOAD_IT
+    model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}", env=env)
+
 logger_custom = configure(log_dir, format_strings=["csv"])
 model.set_logger(logger_custom)
 custom_callback = CustomCallback(
