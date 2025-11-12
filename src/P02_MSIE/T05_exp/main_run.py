@@ -19,9 +19,9 @@ from P02_MSIE.T05_exp.problem_sets import load_vrp
 RUN_TYPE = "LOAD"
 LEARN_TIMESTEPS = 100000
 PROBLEM_SET = "LARGE"
-LOAD_FOLDER = "R_20251112_172424"
-LOAD_BEST_TYPE = "val"
-LOAD_IT = 54469
+LOAD_FOLDER = "R_20251112_204554"
+LOAD_BEST_TYPE = "end"
+LOAD_IT = 100000
 
 vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=0)
 log_dir = "./logs"

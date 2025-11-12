@@ -17,15 +17,29 @@ RANDOM_SEED = 42
 folder_sets = [
     dict(
         run_name="R1",
-        folder="R_20251112_172424",
-        best_type="rw",
-        it=54469,
+        folder="R_20251112_165510",
+        file_type="end",
+        it=20000,
         attr={"target_solution_unscaled": 250},
     ),
     dict(
         run_name="R2",
+        folder="R_20251112_172424",
+        file_type="rw",
+        it=54469,
+        attr={"target_solution_unscaled": 250},
+    ),
+    dict(
+        run_name="R3",
         folder="R_20251112_204554",
-        best_type="end",
+        file_type="end",
+        it=100000,
+        attr={"target_solution_unscaled": 250},
+    ),
+    dict(
+        run_name="R4",
+        folder="R_20251112_213633",
+        file_type="end",
         it=100000,
         attr={"target_solution_unscaled": 250},
     ),
@@ -36,10 +50,10 @@ vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=0)
 datetime_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 for fs in folder_sets:
     folder = fs["folder"]
-    best_type = fs["best_type"]
+    file_type = fs["file_type"]
     it = fs["it"]
     run_name = fs["run_name"]
-    print(f"Evaluating folder: {folder}, best_type: {best_type}, it: {it}")
+    print(f"Evaluating folder: {folder}, file_type: {file_type}, it: {it}")
     for attr_key, attr_value in fs["attr"].items():
         if attr_key == "target_solution_unscaled":
             vrptw.set_target_solution(attr_value)
@@ -58,7 +72,7 @@ for fs in folder_sets:
             )
 
     # Load the model
-    model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}")
+    model = SAC.load(f"save_models/{folder}/{file_type}_{it:05d}")
 
     # Create the environment
     env = AIMH_ENV(vrp=vrptw)
