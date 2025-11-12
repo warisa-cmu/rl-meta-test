@@ -13,7 +13,7 @@ from P02_MSIE.T04_class_env.problem_sets import load_vrp
 
 
 PROBLEM_SET = "LARGE"
-RANDOM_SEED = 42
+RANDOM_SEED = 0
 folder_sets = [
     dict(
         run_name="R1",
@@ -122,7 +122,7 @@ for fs in folder_sets:
     env = AIMH_ENV(vrp=vrptw)
 
     # Run the evaluation
-    obs, info = env.reset(seed=0)
+    obs, info = env.reset(seed=RANDOM_SEED)
     terminated = False
     truncated = False
     data_array = []
