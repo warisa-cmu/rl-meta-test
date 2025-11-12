@@ -13,11 +13,11 @@ from P02_MSIE.T04_class_env.problem_sets import load_vrp
 # PROBLEM_SET = "LARGE"
 
 RUN_TYPE = "LOAD"
-LEARN_TIMESTEPS = 20000
+LEARN_TIMESTEPS = 60000
 PROBLEM_SET = "LARGE"
-LOAD_FOLDER = "R_20251112_095513"
+LOAD_FOLDER = "R_20251112_104208"
 LOAD_BEST_TYPE = "end"
-LOAD_IT = 20000
+LOAD_IT = 100000
 
 vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=0)
 log_dir = "./logs"

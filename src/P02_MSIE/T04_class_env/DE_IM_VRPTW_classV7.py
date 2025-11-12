@@ -512,6 +512,10 @@ class VRPTW:
         else:
             raise Exception("Invalid Option")
 
+    def set_target_solution(self, target_solution_unscaled):
+        self.target_solution_unscaled = target_solution_unscaled
+        self.target_solution = target_solution_unscaled / self.solution_scale_factor
+
 
 if __name__ == "__main__":
     distance = (
