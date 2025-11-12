@@ -1,5 +1,6 @@
-from datetime import datetime
 import os
+import pickle
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,20 +12,26 @@ from stable_baselines3 import SAC
 from P02_MSIE.T05_exp.env_v3 import AIMH_ENV
 from P02_MSIE.T05_exp.problem_sets import load_vrp
 
-
 PROBLEM_SET = "LARGE"
 RANDOM_SEED = 42
 folder_sets = [
     dict(
         run_name="R1",
-        folder="R_20251112_165510",
+        folder="R_20251112_172424",
+        best_type="rw",
+        it=54469,
+        attr={"target_solution_unscaled": 250},
+    ),
+    dict(
+        run_name="R2",
+        folder="R_20251112_204554",
         best_type="end",
-        it=20000,
+        it=100000,
         attr={"target_solution_unscaled": 250},
     ),
 ]
 
-vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=1)
+vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=0)
 
 datetime_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 for fs in folder_sets:
@@ -110,8 +117,7 @@ for fs in folder_sets:
     fig.savefig(f"_tmp/plot_{datetime_now}_{run_name}_seed{RANDOM_SEED}.png", dpi=300)
 
     # Save the vrptw object
-    # import pickle
-    # with open(f"_tmp/vrp_{datetime_now}.pkl", "wb") as f:
-    #     pickle.dump(vrptw, f)
+    with open(f"_tmp/vrp_{datetime_now}_{run_name}_seed{RANDOM_SEED}.pkl", "wb") as f:
+        pickle.dump(vrptw, f)
 
     print("------------------------------")
