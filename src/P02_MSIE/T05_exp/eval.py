@@ -8,8 +8,8 @@ from rich.console import Console
 from rich.table import Table
 from stable_baselines3 import SAC
 
-from P02_MSIE.T04_class_env.RL_envV2 import AIMH_ENV
-from P02_MSIE.T04_class_env.problem_sets import load_vrp
+from P02_MSIE.T05_exp.env_v3 import AIMH_ENV
+from P02_MSIE.T05_exp.problem_sets import load_vrp
 
 
 PROBLEM_SET = "LARGE"
@@ -17,16 +17,14 @@ RANDOM_SEED = 42
 folder_sets = [
     dict(
         run_name="R1",
-        folder="R_20251112_151653",
+        folder="R_20251112_165510",
         best_type="end",
         it=20000,
         attr={"target_solution_unscaled": 250},
     ),
 ]
 
-vrptw = load_vrp(
-    problem_set=PROBLEM_SET,
-)
+vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=1)
 
 datetime_now = datetime.now().strftime("%Y%m%d_%H%M%S")
 for fs in folder_sets:
@@ -70,8 +68,8 @@ for fs in folder_sets:
 
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = env.step(action)
-        if idx % 100 == 0:
-            print(f"Step: {idx}, Reward: {reward:.2f}, Action: {action}, Info: {info}")
+        # if idx % 100 == 0:
+        #     print(f"Step: {idx}, Reward: {reward:.2f}, Action: {action}, Info: {info}")
         reward_total += reward
         data_added = {**info, "reward": reward, "action": action}
         data_array.append(data_added)
@@ -99,8 +97,8 @@ for fs in folder_sets:
     # Plot results
     fig, ax = plt.subplots(1, figsize=(10, 5))
     x = np.arange(vrptw.idx_iteration + 1)
-    y1 = vrptw.global_solution_history
-    y2 = vrptw.fitness_trial_history
+    y1 = np.array(vrptw.global_solution_history) * vrptw.solution_scale_factor
+    y2 = np.array(vrptw.fitness_trial_history) * vrptw.solution_scale_factor
     ax.plot(x, y1, marker=".", label="Best Solution")
     ax.plot(x, y2, marker=".", label="Fitness Trial")
     ax.set(

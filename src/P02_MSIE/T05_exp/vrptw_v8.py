@@ -11,8 +11,8 @@ F_LOWER_BOUND = 1e-5  # Lower bound for mutation factor F
 CR_UPPER_BOUND = 1.0  # Upper bound for crossover rate CR
 CR_LOWER_BOUND = 1e-5  # Lower bound for crossover rate CR
 MAX_ITERATION = 1e6  # Maximum number of iterations
-MG_UPPER_BOUND = 0.9  # Upper bound for migration rate MG
-MG_LOWER_BOUND = 0.1  # Lower bound for migration rate MG
+MG_UPPER_BOUND = 1  # Upper bound for migration rate MG
+MG_LOWER_BOUND = 0  # Lower bound for migration rate MG
 
 
 class VRPTW:
@@ -64,8 +64,8 @@ class VRPTW:
         self.current_cost = None
         self.current_fitness_trials = None
 
-        # kwargs passed into objective/preserving_strategy
-        self.kwargs = {
+        # Problem info passed into objective/preserving_strategy
+        self._info = {
             "distance": distance,
             "demand": demand,
             "readyTime": readyTime,
@@ -130,14 +130,16 @@ class VRPTW:
     # --------------------------
     # VRPTW cost evaluator (your original logic kept intact)
     # --------------------------
-    def preserving_strategy(self, X, V, **kwargs):
+    def preserving_strategy(self, X, V):
         # --- Unpack input data from keyword arguments ---
-        dist = kwargs["distance"]  # Distance/time matrix between all nodes
-        weight = kwargs["demand"]  # Demand (weight) for each customer node
-        ready = kwargs["readyTime"]  # Ready time (earliest service time) for each node
-        due = kwargs["dueDate"]  # Due time (latest service time) for each node
-        service = kwargs["serviceTime"]  # Service time at each node
-        vehicle = kwargs[
+        dist = self._info["distance"]  # Distance/time matrix between all nodes
+        weight = self._info["demand"]  # Demand (weight) for each customer node
+        ready = self._info[
+            "readyTime"
+        ]  # Ready time (earliest service time) for each node
+        due = self._info["dueDate"]  # Due time (latest service time) for each node
+        service = self._info["serviceTime"]  # Service time at each node
+        vehicle = self._info[
             "vehicle"
         ]  # Vehicle info: [number of vehicles, capacity per vehicle]
 
@@ -218,22 +220,22 @@ class VRPTW:
     # --------------------------
     # Thin wrapper to call the evaluator
     # --------------------------
-    def f_per_particle(self, m, s, **kwargs):
+    def f_per_particle(self, m, s):
         X = m  # decoded sequence
         V = s  # decoded vehicle vector
-        obj_val = self.preserving_strategy(X, V, **kwargs)  # Call Preserving strategy.
+        obj_val = self.preserving_strategy(X, V)  # Call Preserving strategy.
         return obj_val
 
     # --------------------------
     # Decode a chromosome to (sequence, vehicle) and evaluate
     # --------------------------
-    def objective_func(self, x, **kwargs):
-        vehicle = kwargs["vehicle"]
+    def objective_func(self, x):
+        vehicle = self._info["vehicle"]
         # First block → customer order (rank-based decoding): smaller value → earlier visit
         seq = x[: -vehicle[0]].argsort() + 1
         # Last 'num_vehicles' genes → vehicle order/index (again rank-based)
         sort = x[-vehicle[0] :].argsort()
-        j = self.f_per_particle(seq, sort, **kwargs)
+        j = self.f_per_particle(seq, sort)
         return j
 
     # --------------------------
@@ -254,14 +256,14 @@ class VRPTW:
                 # ---- Crossover (binomial) ----
                 crossover_prob = np.random.rand(len(self.bounds))
                 trial = np.where(
-                    crossover_prob < self.CR_rate, mutant, self.population[i]
+                    crossover_prob < self.CR_rate, mutant, np.copy(self.population[i])
                 )
 
                 # Note: In classic DE, we ensure at least one dimension from the mutant (jrand trick).
                 # Todo: enforce jrand if you want strict DE semantics.
 
                 # ---- Selection ----
-                fitness_trial = self.objective_func(trial, **self.kwargs)
+                fitness_trial = self.objective_func(trial)
                 self.current_fitness_trials[i] = fitness_trial
                 fitness_current = self.current_cost[i]
 
@@ -279,49 +281,69 @@ class VRPTW:
                 diff_amount = (
                     self.global_solution_history[-2] - self.global_solution_history[-1]
                 )
+                if self.verbose > 0:
+                    print(
+                        f"Iteration {self.idx_iteration}: Best Solution = {self.global_solution_history[-1]}, Diff = {diff_amount}, Patience Remaining = {self.patience_remaining}"
+                    )
                 if diff_amount > 0:  # Improvement found
                     self.patience_remaining = self.patience  # Reset patience
-                else:  # No improvement
+                elif diff_amount == 0:  # No improvement
                     self.patience_remaining -= 1
+                else:  # Should not happen
+                    raise Exception("Best solution worsened during evolution!")
             pass
 
     def migration(self):
-        # Keep the top MG_rate fraction from the current population and
-        # inject them into the worst positions of a freshly sampled population.
+        # Island Model Migration
 
-        # Best indices from the current population
-        idx_best_migration = self.current_cost.argsort()[
-            : int(self.population_size * self.MG_rate)
-        ]
-        migration_population = self.population[idx_best_migration]
+        # Select elites from current population
+        num_elites = int(self.population_size * self.MG_rate)
+        if num_elites == 0:
+            return  # No migration needed
+        elif num_elites >= self.population_size:
+            num_elites = (
+                self.population_size - 1
+            )  # Ensure at least one individual is replaced
+
+        idx_elites = self.current_cost.argsort()[:num_elites]
+        population_elites = self.population[idx_elites]
+        cost_elites = self.current_cost[idx_elites]
 
         # New random population
-        new_pop = np.random.uniform(
+        population_migrate = np.random.uniform(
             self.bounds[:, 0],
             self.bounds[:, 1],
             (self.population_size, len(self.bounds)),
         )
 
         # Evaluate new population
-        migration_cost = np.zeros(shape=(self.population_size,))
+        cost_migrate = np.zeros(shape=(self.population_size,))
         for obj in range(self.population_size):
-            migration_cost[obj] = self.objective_func(new_pop[obj], **self.kwargs)
+            cost_migrate[obj] = self.objective_func(population_migrate[obj])
 
         # Replace the worst in the new population with previous elites
-        idx_good_migration = migration_cost.argsort()
-        idx_bad_migration = np.flip(idx_good_migration)[
-            : int(self.population_size * self.MG_rate)
-        ]
-        new_pop[idx_bad_migration] = migration_population
+        idx_bad_migration = cost_migrate.argsort()[::-1][:num_elites]
+        population_migrate[idx_bad_migration] = population_elites
+        cost_migrate[idx_bad_migration] = cost_elites
 
         # Adopt the migrated population
-        self.population = new_pop
+        self.population = population_migrate
+        self.current_cost = cost_migrate
 
-        # Update current cost
-        for obj in range(self.population_size):
-            self.current_cost[obj] = self.objective_func(
-                self.population[obj], **self.kwargs
-            )
+        if len(self.global_solution_history) > 0:
+            solution_before = self.global_solution_history[-1]
+            solution_after = self.calc_best_solution(type="cost")
+            # Check if best solution improved
+            if solution_after < solution_before:
+                self.patience_remaining = self.patience  # Reset patience
+                if self.verbose > 0:
+                    print(
+                        f"Migration improved best solution from {solution_before} to {solution_after}"
+                    )
+            # Check that best solution did not worsen
+            elif solution_after > solution_before:
+                raise Exception("Best solution worsened after migration!")
+        pass
 
     # --------------------------
     # Adjust migration rate
@@ -338,9 +360,9 @@ class VRPTW:
         # Clamp F and CR to their bounds
         self.F_rate = max(F_LOWER_BOUND, min(self.F_rate, F_UPPER_BOUND))
         self.CR_rate = max(CR_LOWER_BOUND, min(self.CR_rate, CR_UPPER_BOUND))
-        # Perform migration if MG_rate is within bounds
-        if self.MG_rate > MG_LOWER_BOUND and self.MG_rate < MG_UPPER_BOUND:
-            self.migration()
+        self.MG_rate = max(MG_LOWER_BOUND, min(self.MG_rate, MG_UPPER_BOUND))
+        # Note that migration can skip if MG_rate is too low.
+        self.migration()
 
     def calc_robustness(self, solution):
         # Return the std of current generation's fitness values.
