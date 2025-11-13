@@ -9,20 +9,20 @@ from stable_baselines3.common.monitor import Monitor
 from P02_MSIE.T06_exp.env_v4 import AIMH_ENV, CustomCallback
 from P02_MSIE.T06_exp.problem_sets import load_vrp
 
-RUN_TYPE = "NEW"
+# RUN_TYPE = "NEW"
+# LEARN_TIMESTEPS = 20000
+# PROBLEM_SET = "LARGE"
+# LOAD_FOLDER = ""
+# LOAD_BEST_TYPE = ""
+# LOAD_IT = 0
+
+
+RUN_TYPE = "LOAD"
 LEARN_TIMESTEPS = 20000
 PROBLEM_SET = "LARGE"
-LOAD_FOLDER = ""
-LOAD_BEST_TYPE = ""
-LOAD_IT = 0
-
-
-# RUN_TYPE = "LOAD"
-# LEARN_TIMESTEPS = 100000
-# PROBLEM_SET = "LARGE"
-# LOAD_FOLDER = "R_20251112_204554"
-# LOAD_BEST_TYPE = "end"
-# LOAD_IT = 100000
+LOAD_FOLDER = "R_20251113_123145"
+LOAD_BEST_TYPE = "end"
+LOAD_IT = 20000
 
 vrptw = load_vrp(problem_set=PROBLEM_SET, verbose=0)
 CURRENT_DIR = pathlib.Path(__file__).parent.resolve()
@@ -45,7 +45,9 @@ elif RUN_TYPE == "LOAD":
     folder = LOAD_FOLDER
     best_type = LOAD_BEST_TYPE
     it = LOAD_IT
-    model = SAC.load(f"save_models/{folder}/{best_type}_{it:05d}", env=env)
+    model = SAC.load(
+        f"{CURRENT_DIR}/save_models/{folder}/{best_type}_{it:05d}", env=env
+    )
 
 logger_custom = configure(log_dir, format_strings=["csv"])
 model.set_logger(logger_custom)

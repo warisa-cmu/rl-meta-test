@@ -180,10 +180,16 @@ class CustomCallback(BaseCallback):
         done = self.locals.get("dones")[0]
         info = self.locals.get("infos")[0]
         vrptw = self.training_env.envs[0].env.vrp
-        self.global_solution_history = vrptw.global_solution_history.copy()
-        self.fitness_trial_history = vrptw.fitness_trial_history.copy()
-        self.population = vrptw.population.copy()
-        self.experiences.append(dict(action=action, reward=reward, done=done, **info))
+        global_solution_history = vrptw.global_solution_history
+        fitness_trial_history = vrptw.fitness_trial_history
+        population = vrptw.population
+        if len(global_solution_history) > 0 and len(fitness_trial_history) > 0:
+            self.global_solution_history = global_solution_history.copy()
+            self.fitness_trial_history = fitness_trial_history.copy()
+            self.population = population.copy()
+            self.experiences.append(
+                dict(action=action, reward=reward, done=done, **info)
+            )
         pass
 
     def save_model(self):
@@ -223,14 +229,27 @@ class CustomCallback(BaseCallback):
             )
 
             # Save VRPTW state
-            vrptw = self.training_env.envs[0].env.vrp
             with open(
                 f"{self.save_dir}/vrp_{self.num_timesteps:05d}.pkl", "wb"
             ) as file:
-                pickle.dump(vrptw, file)
+                pickle.dump(
+                    dict(
+                        global_solution_history=self.global_solution_history,
+                        fitness_trial_history=self.fitness_trial_history,
+                        population=self.population,
+                        episode_reward=episode_reward,
+                        episode_length=episode_length,
+                        best_solution=global_value,
+                        vrptw=self.training_env.envs[0].env.vrp,
+                    ),
+                    file,
+                )
 
         # Delete experiences
         self.experiences = []
+        self.global_solution_history = []
+        self.fitness_trial_history = []
+        self.population = None
 
     def print_info(self, global_value, episode_reward, episode_length):
         print(
