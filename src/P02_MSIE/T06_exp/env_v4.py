@@ -179,7 +179,12 @@ class CustomCallback(BaseCallback):
         reward = self.locals.get("rewards")[0]
         done = self.locals.get("dones")[0]
         info = self.locals.get("infos")[0]
+        vrptw = self.training_env.envs[0].env.vrp
+        self.global_solution_history = vrptw.global_solution_history.copy()
+        self.fitness_trial_history = vrptw.fitness_trial_history.copy()
+        self.population = vrptw.population.copy()
         self.experiences.append(dict(action=action, reward=reward, done=done, **info))
+        pass
 
     def save_model(self):
         infos = self.locals["infos"][0]
