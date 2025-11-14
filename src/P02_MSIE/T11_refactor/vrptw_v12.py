@@ -3,73 +3,28 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from .utils import LinearScaler
 
-SOL_UPPER_BOUND = 1e5
-VAL_INVALID_STD_POPULATION = 100  # Large value indicating invalid std population
-F_UPPER_BOUND = 1.0  # Upper bound for mutation factor F
-F_LOWER_BOUND = 1e-5  # Lower bound for mutation factor F
-CR_UPPER_BOUND = 1.0  # Upper bound for crossover rate CR
-CR_LOWER_BOUND = 1e-5  # Lower bound for crossover rate CR
-MAX_ITERATION = 1e5  # Maximum number of iterations
-MG_UPPER_BOUND = 1  # Upper bound for migration rate MG
-MG_LOWER_BOUND = 0  # Lower bound for migration rate MG
-
-
-@dataclass
-class Param:
-    upper_bound: float = 1
-    lower_bound: float = 0
-    scale_factor: float = 1
-    invalid_value: float = -1
-    starting_value: float = 0
-
-    def __post_init__(self):
-        pass
-
-    # @dataclass
-    # class VRPTW:
-    #     # Differential Evolution (DE) optimizer wrapper for VRPTW.
-    #     # - Genome is real-valued; the first block decodes to a customer order (via argsort),
-    #     #   the last 'num_vehicles' genes decode to a vehicle ordering/indexing.
-    #     # - Fitness is computed by 'preserving_strategy' (your VRPTW cost/feasibility evaluator).
-
-    #     # --------------------------
-    #     # Hyper-params and problem data
-    #     # --------------------------
-    #     def __init__(
-    #         self,
-    #         population_size,
-    #         dimensions,
-    #         bounds,
-    #         distance,
-    #         demand,
-    #         readyTime,
-    #         dueDate,
-    #         serviceTime,
-    #         vehicle,
-    #         param_solution: Param,
-    #         param_F: Param,
-    #         param_CR: Param,
-    #         param_MG: Param,
-    #         param_total_iteration: Param,
-    #         param_convergence_rate: Param,
-    #         param_std_population: Param,
-    #         max_iteration=MAX_ITERATION,
-    #         solution_scale_factor=1,
-    #         patience=200,
-    #         interval_it=100,
-    #         target_solution_unscaled=0,
-    #         alpha_target=1,
-    #         alpha_patience=1,
-    #         verbose=0,
-    #     ):
+# SOL_UPPER_BOUND = 1e5
+# VAL_INVALID_STD_POPULATION = 100  # Large value indicating invalid std population
+# F_UPPER_BOUND = 1.0  # Upper bound for mutation factor F
+# F_LOWER_BOUND = 1e-5  # Lower bound for mutation factor F
+# CR_UPPER_BOUND = 1.0  # Upper bound for crossover rate CR
+# CR_LOWER_BOUND = 1e-5  # Lower bound for crossover rate CR
+# MAX_ITERATION = 1e5  # Maximum number of iterations
+# MG_UPPER_BOUND = 1  # Upper bound for migration rate MG
+# MG_LOWER_BOUND = 0  # Lower bound for migration rate MG
 
 
 @dataclass
 class VRPTW:
+    # Differential Evolution (DE) optimizer wrapper for VRPTW.
+    # - Genome is real-valued; the first block decodes to a customer order (via argsort),
+    #   the last 'num_vehicles' genes decode to a vehicle ordering/indexing.
+    # - Fitness is computed by 'preserving_strategy' (your VRPTW cost/feasibility evaluator).
     # ----- Inputs -----
-    population_size: int  # population size for DE
-    dimensions: int  # chromosome length
+    population_size: int  # Population size for DE
+    dimensions: int  # Chromosome length
     bounds: tuple  # Gene bounds
     # Problem info passed into objective/preserving_strategy
     distance: np.ndarray
@@ -84,11 +39,12 @@ class VRPTW:
     target_solution: float  # Target solution (unscaled)
     alpha_target: float = 1  # Weight for reward contribution from hitting target
     alpha_patience: float = 10  # How fast reward decay if not improving
-    param_solution: Param
-    param_F: Param
-    param_CR: Param
-    param_MG: Param
-    param_iteration: Param
+    sc_solution: LinearScaler  # Scaler for solution
+    sc_iteration: LinearScaler  # Scaler for iteration
+    sc_F: LinearScaler  # Scaler for mutation factor F
+    sc_CR: LinearScaler  # Scaler for crossover rate CR
+    sc_MG: LinearScaler  # Scaler for migration rate MG
+    sc_std_population: LinearScaler  # Scaler for std population
     verbose = 0  # Verbosity level
 
     # ----- Internals -----
@@ -96,8 +52,8 @@ class VRPTW:
     F_rate: float = 0  # DE mutation factor
     CR_rate: float = 0  # DE crossover rate
     MG_rate: float = 0  # migration rate (fraction of elites)
-    global_solution_history: np.ndarray = np.array([])  # best fitness per iteration
-    fitness_trial_history: np.ndarray = np.array([])  # fitness of trial solutions
+    global_solution_history: list = []  # Best fitness per iteration
+    fitness_trial_history: list = []  # Fitness of trial solutions
     current_cost: np.ndarray = np.array([])  # Current cost values
     current_fitness_trials: np.ndarray = np.array([])  # Current fitness trial values
     population: np.ndarray = np.array([])  # Current population
@@ -105,14 +61,7 @@ class VRPTW:
     local_rng: np.random.Generator = (
         np.random.default_rng()
     )  # Local random number generator
-
-    patience_remaining = 400  # Remaining patience
-
-    # self.max_iteration = max_iteration
-    # Target solution
-    # self.solution_scale_factor = solution_scale_factor
-    # self.target_solution = target_solution_unscaled / self.solution_scale_factor
-    # self.iteration_scale_factor = 1000
+    patience_remaining = 0  # Remaining patience
 
     def __post_init__(self):
         # Check bounds shape
@@ -120,6 +69,10 @@ class VRPTW:
             raise ValueError(
                 "Bounds should be [0, 1] for min-max scaling. If different, please adjust the code accordingly."
             )
+
+        # Population has to be larger than 4 due to random.choice
+        if self.population_size < 4:
+            raise ValueError("Population size must be at least 4.")
 
     # --------------------------
     # Initialize population and DE params
@@ -140,19 +93,21 @@ class VRPTW:
             self.bounds[1],
             (self.population_size, self.dimensions),
         )
-        self.current_cost = SOL_UPPER_BOUND * np.ones(shape=(self.population_size,))
-        self.current_fitness_trials = SOL_UPPER_BOUND * np.ones(
+
+        self.current_cost = self.sc_solution.starting_value * np.ones(
+            shape=(self.population_size,)
+        )
+        self.current_fitness_trials = self.sc_solution.starting_value * np.ones(
             shape=(self.population_size,)
         )
 
         # Reasonable default rates
-        self.MG_rate = 0.5
-        self.F_rate = (F_UPPER_BOUND + F_LOWER_BOUND) / 2
-        self.CR_rate = (CR_UPPER_BOUND + CR_LOWER_BOUND) / 2
+        self.F_rate = self.sc_F.starting_value
+        self.CR_rate = self.sc_CR.starting_value
+        self.MG_rate = self.sc_MG.starting_value
         self.idx_iteration = -1  # This is to offset the first increment in evolve()
-        self.global_solution_history = []  # best fitness per iteration
-        self.fitness_trial_history = []  # fitness of trial solutions
-        self.DE_robust = None
+        self.global_solution_history = []
+        self.fitness_trial_history = []
         self.patience_remaining = self.patience
 
     # --------------------------
@@ -375,22 +330,16 @@ class VRPTW:
                 raise Exception("Best solution worsened after migration!")
         pass
 
-    # --------------------------
-    # Adjust migration rate
-    # --------------------------
-    def change_migration_rate(self, migration_rate):
-        self.MG_rate = migration_rate
-
     def action(self, option):
-        # option: [F_rate, CR_rate, MG_rate]
-        self.F_rate = option[0]
-        self.CR_rate = option[1]
-        self.MG_rate = option[2]
+        # option: [F_rate, CR_rate, MG_rate] (scaled)
+        self.F_rate = self.sc_F.inverse_transform(option[0])
+        self.CR_rate = self.sc_CR.inverse_transform(option[1])
+        self.MG_rate = self.sc_MG.inverse_transform(option[2])
 
         # Clamp F and CR to their bounds
-        self.F_rate = max(F_LOWER_BOUND, min(self.F_rate, F_UPPER_BOUND))
-        self.CR_rate = max(CR_LOWER_BOUND, min(self.CR_rate, CR_UPPER_BOUND))
-        self.MG_rate = max(MG_LOWER_BOUND, min(self.MG_rate, MG_UPPER_BOUND))
+        self.F_rate = self.sc_F.clip_to_bounds(self.F_rate, scaled=False)
+        self.CR_rate = self.sc_CR.clip_to_bounds(self.CR_rate, scaled=False)
+        self.MG_rate = self.sc_MG.clip_to_bounds(self.MG_rate, scaled=False)
         # Note that migration can skip if MG_rate is too low.
         self.migration()
 
@@ -403,18 +352,13 @@ class VRPTW:
 
     def calc_std(self, type="cost"):
         if type == "cost":
-            obj_values = self.current_cost
+            solution_arrays = self.current_cost
         elif type == "trial":
-            obj_values = self.current_fitness_trials
+            solution_arrays = self.current_fitness_trials
         else:
             raise Exception("Invalid Option")
 
-        # Handle the special case where all solutions are at upper bound
-        if np.all(obj_values == SOL_UPPER_BOUND):
-            self.std_pop = VAL_INVALID_STD_POPULATION  # Make it worse at the beginning
-            return self.std_pop
-
-        std = np.std(obj_values / self.solution_scale_factor)
+        std = np.std(self.sc_solution.transform(solution_arrays))
         return std
 
     def calc_convergence_rate(self):
@@ -473,7 +417,7 @@ class VRPTW:
         # Get the best objective value and the corresponding individual (solution).
         best_solution = obj_values[best_index]
 
-        return best_solution / self.solution_scale_factor
+        return best_solution
 
     def is_terminated(self):
         # Check termination conditions based on max iterations or patience.
