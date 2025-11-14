@@ -106,13 +106,12 @@ class VRPTW:
         np.random.default_rng()
     )  # Local random number generator
 
-    # self.max_iteration = max_iteration
     patience_remaining = 400  # Remaining patience
 
+    # self.max_iteration = max_iteration
     # Target solution
     # self.solution_scale_factor = solution_scale_factor
     # self.target_solution = target_solution_unscaled / self.solution_scale_factor
-
     # self.iteration_scale_factor = 1000
 
     def __post_init__(self):
