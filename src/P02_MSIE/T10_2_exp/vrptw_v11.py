@@ -43,6 +43,7 @@ class VRPTW:
         alpha_target=1,
         alpha_patience=1,
         verbose=0,
+        solution_inject=None,
     ):
         # ----- Inputs -----
         self.population_size = population_size  # population size for DE
@@ -111,6 +112,8 @@ class VRPTW:
                 "Bounds should be [0, 1] for min-max scaling. If different, please adjust the code accordingly."
             )
 
+        self.solution_inject = solution_inject
+
     # --------------------------
     # Initialize population and DE params
     # --------------------------
@@ -130,7 +133,13 @@ class VRPTW:
             self.bounds[1],
             (self.population_size, self.dimensions),
         )
+
+        if self.solution_inject is not None:
+            self.population[0] = self.solution_inject
+
         self.current_cost = SOL_UPPER_BOUND * np.ones(shape=(self.population_size,))
+        for obj in range(self.population_size):
+            self.current_cost[obj] = self.objective_func(self.population[obj])
         self.current_fitness_trials = SOL_UPPER_BOUND * np.ones(
             shape=(self.population_size,)
         )
@@ -500,7 +509,13 @@ class VRPTW:
             trial_solution = self.fitness_trial_history[start_it:end_it]
             diff_array = np.array(best_solution) - np.array(trial_solution)
             reward_ave = np.sum(diff_array) / self.interval_it
-            return reward_ave
+
+            improvement = (
+                self.global_solution_history[start_it]
+                - self.global_solution_history[self.idx_iteration]
+            )
+
+            return reward_ave + improvement
         elif mode in ["TARGET_ENHANCED_1", "TARGET_ENHANCED_2"]:
             epsilon_target = 1e-6  # Prevent division by zero
             improvement = (

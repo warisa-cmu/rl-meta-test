@@ -6,6 +6,7 @@ from P02_MSIE.T10_2_exp.vrptw_v11 import VRPTW
 def load_vrp(
     problem_set: str,
     verbose: int = 0,
+    solution_inject=None,
 ) -> VRPTW:
     # Set hyperparameters based on problem set
     if problem_set == "SMALL":
@@ -17,13 +18,14 @@ def load_vrp(
         ALPHA_PATIENCE = 20
         SOLUTION_SCALE_FACTOR = 1
     elif problem_set == "LARGE":
-        PATIENCE = 400
-        POPULATION_SIZE = 100
+        PATIENCE = 1600
+        POPULATION_SIZE = 20
         INTERVAL_IT = 10
         TARGET_SOLUTION_UNSCALED = 190
         ALPHA_TARGET = 2
         ALPHA_PATIENCE = 20
         SOLUTION_SCALE_FACTOR = 500
+        SOLUTION_INJECT = solution_inject
     else:
         raise ValueError("Invalid problem_set. Choose either 'SMALL' or 'LARGE'.")
 
@@ -96,5 +98,6 @@ def load_vrp(
         alpha_target=ALPHA_TARGET,
         alpha_patience=ALPHA_PATIENCE,
         verbose=verbose,
+        solution_inject=SOLUTION_INJECT,
     )
     return vrptw
