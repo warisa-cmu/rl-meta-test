@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import pathlib
 import pickle
+import time
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
@@ -13,121 +14,120 @@ from rich.console import Console
 from rich.table import Table
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.logger import configure
+from stable_baselines3.common.logger import Logger
 from stable_baselines3.common.monitor import Monitor
-from P02_MSIE.T09_exp.vrptw_v11 import (
-    CR_LOWER_BOUND,
-    CR_UPPER_BOUND,
-    F_LOWER_BOUND,
-    F_UPPER_BOUND,
-    MAX_ITERATION,
-    SOL_UPPER_BOUND,
-    VAL_INVALID_STD_POPULATION,
-    MG_LOWER_BOUND,
-    MG_UPPER_BOUND,
-    VRPTW,
-)
+from stable_baselines3.common.logger import CSVOutputFormat
+
+from P02_MSIE.T11_refactor.vrptw_v12 import VRPTW
+from P02_MSIE.T11_refactor.utils import LinearScaler
 
 
-class AIMH_ENV(gym.Env):
-    def __init__(self, vrp):
+class RLMH_ENV(gym.Env):
+    metadata = {"render_modes": None, "render_fps": 4}
+
+    def __init__(self, vrp: VRPTW):
         super().__init__()
 
-        # Action space: [F, CR, Mutation Rate]
+        # Action space: [F, CR, Mutation Rate] (Scaled)
         self.action_space = spaces.Box(
             low=np.array(
-                [F_LOWER_BOUND, CR_LOWER_BOUND, MG_LOWER_BOUND], dtype=np.float64
+                [
+                    vrp.sc_F.bounds_scaled[0],
+                    vrp.sc_CR.bounds_scaled[0],
+                    vrp.sc_MG.bounds_scaled[0],
+                ],
+                dtype=np.float64,
             ),
             high=np.array(
-                [F_UPPER_BOUND, CR_UPPER_BOUND, MG_UPPER_BOUND], dtype=np.float64
+                [
+                    vrp.sc_F.bounds_scaled[1],
+                    vrp.sc_CR.bounds_scaled[1],
+                    vrp.sc_MG.bounds_scaled[1],
+                ],
+                dtype=np.float64,
             ),
             shape=(3,),
             dtype=np.float64,
         )
         # Observation space features:
         # order = [
-        #     "best_solution",
-        #     "F",
-        #     "CR",
-        #     "MG",
-        #     "convergence_rate",
-        #     "std_pop",
-        #     "total_iteration",
-        #     "best_trial_fitness",
-        #     "std_trial_fitness",
-        #     "patience_ratio"
+        #     "F_sc",
+        #     "CR_sc",
+        #     "MG_sc",
+        #     "best_solution_sc",
+        #     "convergence_rate", # Already scaled [0,1]
+        #     "std_population_sc",
+        #     "best_trial_fitness_sc",
+        #     "std_trial_fitness_sc",
+        #     "patience_remaining_sc"
         # ]
         self.observation_space = gym.spaces.Box(
             low=np.array(
                 [
-                    0,  # best_solution lower bound
-                    F_LOWER_BOUND,
-                    CR_LOWER_BOUND,
-                    MG_LOWER_BOUND,
+                    vrp.sc_F.bounds_scaled[0],
+                    vrp.sc_CR.bounds_scaled[0],
+                    vrp.sc_MG.bounds_scaled[0],
+                    vrp.sc_solution.bounds_scaled[0],
                     0,  # Convergence rate lower bound
-                    0,  # std_pop lower bound
-                    0,  # total_iteration lower bound
-                    0,  # best_trial_fitness lower bound
-                    0,  # std_trial_fitness lower bound
-                    0,  # patience_ratio lower bound
+                    0,  # std_population_sc lower bound
+                    vrp.sc_solution.bounds_scaled[
+                        0
+                    ],  # best_trial_fitness_sc lower bound
+                    0,  # std_trial_fitness_sc lower bound
+                    0,  # patience_remaining_sc lower bound
                 ],
                 dtype=np.float64,
             ),
             high=np.array(
                 [
-                    SOL_UPPER_BOUND,
-                    F_UPPER_BOUND,
-                    CR_UPPER_BOUND,
-                    MG_UPPER_BOUND,  # MG upper bound
+                    vrp.sc_F.bounds_scaled[1],
+                    vrp.sc_CR.bounds_scaled[1],
+                    vrp.sc_MG.bounds_scaled[1],
+                    vrp.sc_solution.bounds_scaled[1],
                     1,  # Convergence_rate upper bound
-                    VAL_INVALID_STD_POPULATION,  # std_pop upper bound
-                    MAX_ITERATION,
-                    SOL_UPPER_BOUND,  # best_trial_fitness upper bound
-                    VAL_INVALID_STD_POPULATION,  # std_trial_fitness upper bound
-                    1,  # patience_ratio upper bound
+                    10,  # std_population_sc upper bound
+                    vrp.sc_solution.bounds_scaled[
+                        1
+                    ],  # best_trial_fitness_sc upper bound
+                    vrp.sc_solution.bounds_scaled[
+                        1
+                    ],  # std_trial_fitness_sc upper bound
+                    1,  # patience_remaining_sc upper bound
                 ],
                 dtype=np.float64,
             ),
-            shape=(10,),  # 10 features
+            shape=(9,),  # 9 features
             dtype=np.float64,
         )
         self.vrp = vrp
         self.verbose = 0
-        pass
 
     def _get_obs(self):
         state = self.vrp.get_current_state()
         obs = np.array(
             [
-                state["best_solution"],
-                state["F"],
-                state["CR"],
-                state["MG"],
+                state["F_sc"],
+                state["CR_sc"],
+                state["MG_sc"],
+                state["best_solution_sc"],
                 state["convergence_rate"],
-                state["std_pop"],
-                state["total_iteration"],
-                state["best_trial_fitness"],
-                state["std_trial_fitness"],
-                state["patience_ratio"],
+                state["std_population_sc"],
+                state["best_trial_fitness_sc"],
+                state["std_trial_fitness_sc"],
+                state["patience_remaining_sc"],
             ],
             dtype=np.float64,
         )
-
         return obs
 
     def _get_info(self):
-        """Compute auxiliary information for debugging.
-
-        Returns:
-            dict: Info in addition to the observation
-        """
         return self.vrp.get_info()
 
     def reset(self, seed=None, options=None):
         if self.verbose > 0:
             print(f"Environment reset with seed: {seed}")
-        self.vrp.reset(seed=seed)
         super().reset(seed=seed)
+        self.vrp.reset(seed=seed)
         observation = self._get_obs()
         info = self._get_info()
         return observation, info
@@ -148,7 +148,17 @@ class AIMH_ENV(gym.Env):
 
 
 class CustomCallback(BaseCallback):
-    def __init__(self, check_freq: int, save_dir: str, date_prefix: str, verbose=1):
+    def __init__(
+        self,
+        check_freq: int,
+        save_dir: str,
+        date_prefix: str,
+        verbose=1,
+        save_best_reward=False,
+        save_best_solution=True,
+        save_interval=True,
+        save_interval_seconds: int = 8 * 60,  # 8 minutes
+    ):
         super().__init__(verbose)
         self.check_freq = check_freq
         self.date_prefix = (
@@ -158,10 +168,18 @@ class CustomCallback(BaseCallback):
         self.best_global_value = np.inf
         self.best_reward = -np.inf
         self.experiences = []
+        self.save_best_reward = save_best_reward
+        self.save_best_solution = save_best_solution
+        self.save_interval = save_interval
+        self.save_interval_seconds = save_interval_seconds
+        self._last_save = None
 
     def _init_callback(self):
         if self.save_dir is not None:
             os.makedirs(self.save_dir, exist_ok=True)
+
+    def _on_training_start(self):
+        self._last_save = time.time()
 
     def _on_step(self) -> bool:
         if self.n_calls % self.check_freq == 0:
@@ -170,8 +188,65 @@ class CustomCallback(BaseCallback):
 
             # Check if the episode is done
             if self.locals["dones"][0]:
-                self.save_model()
-            # self.custom_log()
+                infos = self.locals["infos"][0]
+                if "episode" not in infos.keys() or "best_solution" not in infos.keys():
+                    print("No episode or best_solution info found.")
+                    return
+                best_solution = infos["best_solution"]
+                episode_reward = infos["episode"]["r"]
+                episode_length = infos["episode"]["l"]
+                now = time.time()
+
+                if best_solution < self.best_global_value:
+                    self.best_global_value = best_solution
+                    if self.verbose > 0:
+                        print(
+                            f"New best global value: {self.best_global_value:5.3f} at step {self.num_timesteps}",
+                        )
+                        self.print_info(
+                            best_solution,
+                            self.best_global_value,
+                            episode_reward,
+                            episode_length,
+                        )
+                    if self.save_best_solution:
+                        self.save_model(mode="solution")
+                elif episode_reward > self.best_reward:
+                    self.best_reward = episode_reward
+                    if self.verbose > 0:
+                        print(
+                            f"New best reward: {self.best_reward:5.3f} at step {self.num_timesteps}",
+                        )
+                        self.print_info(
+                            best_solution,
+                            self.best_global_value,
+                            episode_reward,
+                            episode_length,
+                        )
+                    if self.save_best_reward:
+                        self.save_model(mode="reward")
+                elif now - self._last_save >= self.save_interval_seconds:
+                    self._last_save = now
+                    if self.verbose > 0:
+                        print(
+                            f"Interval save at step {self.num_timesteps}",
+                        )
+                        self.print_info(
+                            best_solution,
+                            self.best_global_value,
+                            episode_reward,
+                            episode_length,
+                        )
+                    if self.save_interval:
+                        self.save_model(mode="interval")
+
+                # Delete experiences
+                self.experiences = []
+                self.global_solution_history = []
+                self.fitness_trial_history = []
+                self.population = None
+
+        # self.custom_log()
         return True
 
     def save_experiences(self):
@@ -192,68 +267,52 @@ class CustomCallback(BaseCallback):
             )
         pass
 
-    def save_model(self):
+    def save_model(self, mode: str):
         infos = self.locals["infos"][0]
         if "episode" not in infos.keys() or "best_solution" not in infos.keys():
             print("No episode or best_solution info found.")
             return
-
         global_value = infos["best_solution"]
         episode_reward = infos["episode"]["r"]
         episode_length = infos["episode"]["l"]
 
-        if episode_reward > self.best_reward:
-            self.best_reward = episode_reward
-            self.model.save(f"{self.save_dir}/rw_{self.num_timesteps:05d}")
-            if self.verbose > 0:
-                print(
-                    f"New best reward: {self.best_reward} at step {self.num_timesteps}",
-                )
-                self.print_info(global_value, episode_reward, episode_length)
-        if global_value < self.best_global_value:
-            self.best_global_value = global_value
-            self.model.save(f"{self.save_dir}/val_{self.num_timesteps:05d}")
-            if self.verbose > 0:
-                print(
-                    f"New best model saved with best global value: {self.best_global_value} at step {self.num_timesteps}",
-                )
-                self.print_info(global_value, episode_reward, episode_length)
+        if mode == "solution":
+            prefix = "sol"
+        elif mode == "reward":
+            prefix = "rew"
+        else:
+            prefix = "int"
+        self.model.save(f"{self.save_dir}/{prefix}_{self.num_timesteps:05d}_model")
 
-            # Store experiences
-            df_experiences = pd.DataFrame(self.experiences)
-            df_experiences.to_excel(
-                f"{self.save_dir}/exp_{self.num_timesteps:05d}.xlsx", index=False
+        # Store experiences
+        df_experiences = pd.DataFrame(self.experiences)
+        df_experiences.to_excel(
+            f"{self.save_dir}/{prefix}_{self.num_timesteps:05d}_exp.xlsx", index=False
+        )
+        df_experiences.to_pickle(
+            f"{self.save_dir}/{prefix}_{self.num_timesteps:05d}_exp.pkl"
+        )
+
+        # Save VRPTW state
+        with open(
+            f"{self.save_dir}/{prefix}_{self.num_timesteps:05d}_vrp.pkl", "wb"
+        ) as file:
+            pickle.dump(
+                dict(
+                    global_solution_history=self.global_solution_history,
+                    fitness_trial_history=self.fitness_trial_history,
+                    population=self.population,
+                    episode_reward=episode_reward,
+                    episode_length=episode_length,
+                    best_solution=global_value,
+                    vrptw=self.training_env.envs[0].env.vrp,
+                ),
+                file,
             )
-            df_experiences.to_pickle(
-                f"{self.save_dir}/exp_{self.num_timesteps:05d}.pkl"
-            )
 
-            # Save VRPTW state
-            with open(
-                f"{self.save_dir}/vrp_{self.num_timesteps:05d}.pkl", "wb"
-            ) as file:
-                pickle.dump(
-                    dict(
-                        global_solution_history=self.global_solution_history,
-                        fitness_trial_history=self.fitness_trial_history,
-                        population=self.population,
-                        episode_reward=episode_reward,
-                        episode_length=episode_length,
-                        best_solution=global_value,
-                        vrptw=self.training_env.envs[0].env.vrp,
-                    ),
-                    file,
-                )
-
-        # Delete experiences
-        self.experiences = []
-        self.global_solution_history = []
-        self.fitness_trial_history = []
-        self.population = None
-
-    def print_info(self, global_value, episode_reward, episode_length):
+    def print_info(self, best_solution, global_value, episode_reward, episode_length):
         print(
-            f"Step: {self.num_timesteps}, Episode Length: {episode_length}, Episode Reward: {episode_reward}, Best Global Value: {global_value}"
+            f"Step: {self.num_timesteps}, Episode Length: {episode_length}, Episode Reward: {episode_reward:5.3f}, Best Solution: {best_solution:5.3f}, Global Value: {global_value:5.3f}"
         )
         print("----------------------------------------")
 
@@ -278,75 +337,108 @@ class CustomCallback(BaseCallback):
         # self.logger.dump(self.num_timesteps)
 
     def _on_training_end(self) -> None:
-        self.model.save(f"{self.save_dir}/end_{self.num_timesteps:05d}")
         print("Simulation/Training has finished. Executing final callback code.")
-        # Perform final data logging, cleanup, or post-processing here
+        self.save_model(mode="interval")
 
 
 if __name__ == "__main__":
     CURRENT_DIR = pathlib.Path(__file__).parent.resolve()
-    LEARN_TIMESTEPS = 10000
-    distance = (
-        pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="distance")
-        .fillna(9999999)
-        .to_numpy()
-    )
 
-    df_vehicle = (
-        pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="vehicle")
-        .iloc[:, :2]
-        .to_numpy(dtype=int)
-    )
-    vehicle = df_vehicle[0]
+    PROBLEM_SET = "LARGE"  # Options: "SMALL", "LARGE"
+    POPULATION_SIZE = 4
+    VERBOSE = 0
+    PATIENCE = 200
+    CONVERT_NONE_SEED_TO_NUMBER = False
 
-    df_101 = pd.read_excel(
-        r"./src/Source/rl_meta_test_data.xlsx", sheet_name="customer"
-    ).iloc[:, 3:]
-    demand = df_101.iloc[:, 0].to_numpy()
-    readyTime = df_101.iloc[:, 1].to_numpy()
-    dueDate = df_101.iloc[:, 2].to_numpy()
-    serviceTime = df_101.iloc[:, -1].to_numpy()
+    SAVE_INTERVAL_SECONDS = 1 * 60  # 1 minute
+    LEARN_TIMESTEPS = 20000
 
-    kwargs = {
+    if PROBLEM_SET == "SMALL":
+        excel_file = "./src/Source/rl_meta_test_data.xlsx"
+    elif PROBLEM_SET == "LARGE":
+        excel_file = "./src/Source/rl_meta_test_data_25_customer.xlsx"
+
+    # Load distance data
+    df_distance = pd.read_excel(excel_file, sheet_name="distance")
+    distance = df_distance.fillna(9999999).to_numpy()
+    # Load vehicle data
+    df_vehicle = pd.read_excel(excel_file, sheet_name="vehicle")
+    vehicle = df_vehicle.loc[0, "fleet_size":"fleet_capacity"].values
+    # Load customer data
+    df_customer = pd.read_excel(excel_file, sheet_name="customer")
+    demand = df_customer.loc[:, "demand"].to_numpy()
+    readyTime = df_customer.loc[:, "readyTime"].to_numpy()
+    dueDate = df_customer.loc[:, "dueTime"].to_numpy()
+    serviceTime = df_customer.loc[:, "duration"].to_numpy()
+    dimensions = distance.shape[0] - 1 + vehicle[0]
+    #
+    population_size = POPULATION_SIZE
+    bounds = (0, 1)
+
+    _info_vrptw = {
         "distance": distance,
         "demand": demand,
         "readyTime": readyTime,
         "dueDate": dueDate,
         "serviceTime": serviceTime,
         "vehicle": vehicle,
+        "population_size": population_size,
+        "dimensions": dimensions,
+        "bounds": bounds,
     }
-    dimensions = len(distance) - 1 + vehicle[0]
-    interval_it = 20
-    patience = 200
-    population_size = 4
-    bounds = [0, 1]
 
-    vrptw = VRPTW(
-        population_size=population_size,
-        dimensions=dimensions,
-        bounds=bounds,
-        distance=distance,
-        demand=demand,
-        readyTime=readyTime,
-        dueDate=dueDate,
-        serviceTime=serviceTime,
-        vehicle=vehicle,
-        interval_it=interval_it,
-        patience=patience,
-        target_solution_unscaled=48,
-        solution_scale_factor=40,
-        alpha_target=1,
-        alpha_patience=10,
-    )
+    if PROBLEM_SET == "SMALL":
+        _info_RL = {
+            "sc_F": LinearScaler(
+                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_CR": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_MG": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_solution": LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
+            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            "interval_it": 10,
+            "target_solution": 40,
+            "alpha_target": 10,
+            "alpha_patience": 5,
+            "patience": PATIENCE,
+            "verbose": VERBOSE,
+            "convert_none_seed_to_number": CONVERT_NONE_SEED_TO_NUMBER,
+        }
+    elif PROBLEM_SET == "LARGE":
+        _info_RL = {
+            "sc_F": LinearScaler(
+                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_CR": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_MG": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_solution": LinearScaler(bounds=(0, 2000), bounds_scaled=(0, 2)),
+            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            "interval_it": 10,
+            "target_solution": 190,
+            "alpha_target": 10,
+            "alpha_patience": 5,
+            "patience": PATIENCE,
+            "verbose": VERBOSE,
+            "convert_none_seed_to_number": CONVERT_NONE_SEED_TO_NUMBER,
+        }
+
+    vrptw = VRPTW(**_info_vrptw, **_info_RL)
 
     log_dir = f"{CURRENT_DIR}/logs"
     os.makedirs(log_dir, exist_ok=True)
     date_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_filepath = f"{log_dir}/{date_prefix}_training.log"
-    csv_filepath_default = f"{log_dir}/progress.csv"
+    logger_filepath = f"{log_dir}/{date_prefix}_training.csv"
     monitor_filepath = f"{log_dir}/{date_prefix}_monitor.csv"
 
-    env = AIMH_ENV(vrp=vrptw)
+    env = RLMH_ENV(vrp=vrptw)
     env = Monitor(
         env,
         filename=monitor_filepath,
@@ -354,22 +446,25 @@ if __name__ == "__main__":
 
     # This will catch many common issues
     try:
-        check_env(env)
+        check_env(env.unwrapped)
         print("Environment passes all checks!")
     except Exception as e:
         print(f"Environment has issues: {e}")
     model = SAC("MlpPolicy", env, verbose=1)
 
     # Set up custom logger
-    # custom_csv_format = CSVOutputFormat(csv_filepath)
-    # logger_custom = configure(log_dir, format_strings=["stdout", "csv"])
-    logger_custom = configure(log_dir, format_strings=["csv"])
-    # logger_custom.with_formats(custom_csv_format)
-    model.set_logger(logger_custom)
-    # model.learn(total_timesteps=100)
+    logger = Logger(folder=log_dir, output_formats=[CSVOutputFormat(logger_filepath)])
+    model.set_logger(logger)
+
+    # Define and add the custom callback
     custom_callback = CustomCallback(
-        check_freq=1, save_dir=f"{CURRENT_DIR}/save_models", date_prefix=date_prefix
+        check_freq=1,
+        save_dir=f"{CURRENT_DIR}/saved_models",
+        date_prefix=date_prefix,
+        save_interval_seconds=SAVE_INTERVAL_SECONDS,
     )
+
+    # Start training
     model.learn(total_timesteps=LEARN_TIMESTEPS, callback=custom_callback)
 
     obs, info = env.reset()
@@ -382,7 +477,6 @@ if __name__ == "__main__":
         data_added = {**info, "reward": reward, "action": action}
         data_array.append(data_added)
     df = pd.DataFrame.from_dict(data_array)
-
     # df.to_excel(f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", index=False)
 
     console = Console()
@@ -406,15 +500,3 @@ if __name__ == "__main__":
     )
     ax.legend()
     plt.show()
-
-    # Rename the default CSV log file to include a timestamp
-    # Does not work because file is being used by another process
-    # try:
-    #     os.rename(csv_filepath_default, csv_filepath)
-    #     print(
-    #         f"File '{csv_filepath_default}' renamed to '{csv_filepath}' successfully."
-    #     )
-    # except FileNotFoundError:
-    #     print(f"Error: File '{csv_filepath_default}' not found.")
-    # except Exception as e:
-    #     print(f"An error occurred: {e}")

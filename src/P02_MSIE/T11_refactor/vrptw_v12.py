@@ -35,6 +35,10 @@ class VRPTW:
     alpha_target: float = 1  # Weight for reward contribution from hitting target
     alpha_patience: float = 10  # How fast reward decay if not improving
     verbose: int = 0  # Verbosity level
+    convert_none_seed_to_number: bool = (
+        True  # During training, seed=None is passed; convert to 42 for reproducibility
+    )
+    seed: int | None = None  # Random seed used
 
     # ----- Internals -----
     _info: dict = field(default_factory=dict)  # Internal storage for problem info
@@ -88,10 +92,11 @@ class VRPTW:
     # --------------------------
     def reset(self, seed=42):
         # I found that SB3 passed None as seed and the value will not get set properly.
-        if seed is None:
+        if seed is None and self.convert_none_seed_to_number:
             seed = 42
         if self.verbose > 0:
             print(f"Seed used in reset: {seed}")
+        self.seed = seed
 
         # Initialize RNG
         self.local_rng = np.random.default_rng(seed)
@@ -387,7 +392,6 @@ class VRPTW:
             ),
             "convergence_rate": self.calc_convergence_rate(),  # No scaling needed
             "std_population_sc": self.calc_std(type="cost", scaled=True),
-            "total_iteration_sc": self.sc_iteration.transform(self.idx_iteration + 1),
             "best_trial_fitness_sc": self.sc_solution.transform(
                 self.calc_best_solution(type="trial")
             ),
@@ -398,7 +402,7 @@ class VRPTW:
     def get_info(self):
         state_scaled = self.get_current_state()
         state = {
-            "F": self.F,
+            "F": self.F_rate,
             "CR": self.CR_rate,
             "MG": self.MG_rate,
             "best_solution": self.calc_best_solution(type="cost"),

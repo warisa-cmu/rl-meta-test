@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import numpy as np
+import warnings
 
 
 # LinearScaler for parameter scaling
@@ -22,7 +23,7 @@ class LinearScaler:
             vin = np.array(vin)
 
         if np.any(vin < self.bounds[0]) or np.any(vin > self.bounds[1]):
-            raise ValueError(
+            warnings.warn(
                 f"Value {vin} out of bounds for scaling. bounds: {self.bounds}"
             )
 
