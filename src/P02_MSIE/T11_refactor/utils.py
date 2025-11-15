@@ -7,10 +7,10 @@ import numpy as np
 class LinearScaler:
     bounds: tuple[float, float]  # Original bounds
     bounds_scaled: tuple[float, float] = (0.0, 1.0)  # Scaled bounds
-    invalid_value: float = (
-        0  # Value to use when parameter is invalid (e.g., out of bounds)
+    invalid_value: float | None = (
+        None  # Value to use when parameter is invalid (e.g., out of bounds)
     )
-    starting_value: float = 0  # Initial value for the parameter (unscaled)
+    starting_value: float | None = None  # Initial value for the parameter (unscaled)
 
     def __post_init__(self):
         pass
@@ -74,3 +74,17 @@ class LinearScaler:
         if scaled:
             return np.clip(value, self.bounds_scaled[0], self.bounds_scaled[1])
         return np.clip(value, self.bounds[0], self.bounds[1])
+
+    def get_invalid_value(self, scaled=False):
+        if self.invalid_value is None:
+            raise ValueError("Invalid value is not set for this scaler.")
+        if scaled:
+            return self.transform(self.invalid_value)
+        return self.invalid_value
+
+    def get_starting_value(self, scaled=False):
+        if self.starting_value is None:
+            raise ValueError("Starting value is not set for this scaler.")
+        if scaled:
+            return self.transform(self.starting_value)
+        return self.starting_value

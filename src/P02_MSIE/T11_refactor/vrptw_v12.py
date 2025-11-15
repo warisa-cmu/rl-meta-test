@@ -5,16 +5,6 @@ import numpy as np
 import pandas as pd
 from P02_MSIE.T11_refactor.utils import LinearScaler
 
-# SOL_UPPER_BOUND = 1e5
-# VAL_INVALID_STD_POPULATION = 100  # Large value indicating invalid std population
-# F_UPPER_BOUND = 1.0  # Upper bound for mutation factor F
-# F_LOWER_BOUND = 1e-5  # Lower bound for mutation factor F
-# CR_UPPER_BOUND = 1.0  # Upper bound for crossover rate CR
-# CR_LOWER_BOUND = 1e-5  # Lower bound for crossover rate CR
-# MAX_ITERATION = 1e5  # Maximum number of iterations
-# MG_UPPER_BOUND = 1  # Upper bound for migration rate MG
-# MG_LOWER_BOUND = 0  # Lower bound for migration rate MG
-
 
 @dataclass
 class VRPTW:
@@ -113,17 +103,17 @@ class VRPTW:
             (self.population_size, self.dimensions),
         )
 
-        self.current_cost = self.sc_solution.starting_value * np.ones(
-            shape=(self.population_size,)
-        )
-        self.current_fitness_trials = self.sc_solution.starting_value * np.ones(
-            shape=(self.population_size,)
-        )
+        self.current_cost = np.ones(shape=(self.population_size,))
+        self.current_fitness_trials = np.ones(shape=(self.population_size,))
+        for i in range(self.population_size):
+            objective_value = self.objective_func(self.population[i])
+            self.current_cost[i] = objective_value
+            self.current_fitness_trials[i] = objective_value
 
         # Reasonable default rates
-        self.F_rate = self.sc_F.starting_value
-        self.CR_rate = self.sc_CR.starting_value
-        self.MG_rate = self.sc_MG.starting_value
+        self.F_rate = self.sc_F.get_starting_value(scaled=False)
+        self.CR_rate = self.sc_CR.get_starting_value(scaled=False)
+        self.MG_rate = self.sc_MG.get_starting_value(scaled=False)
         self.idx_iteration = -1  # This is to offset the first increment in evolve()
         self.global_solution_history = []
         self.fitness_trial_history = []
@@ -132,7 +122,7 @@ class VRPTW:
     # --------------------------
     # VRPTW cost evaluator (your original logic kept intact)
     # --------------------------
-    def preserving_strategy(self, X, V):
+    def preserving_strategy(self, X: np.ndarray, V: np.ndarray) -> float:
         # --- Unpack input data from keyword arguments ---
         dist = self._info["distance"]  # Distance/time matrix between all nodes
         weight = self._info["demand"]  # Demand (weight) for each customer node
@@ -220,25 +210,16 @@ class VRPTW:
         return total_distance  # Return overall objective (distance with penalty if violated)
 
     # --------------------------
-    # Thin wrapper to call the evaluator
-    # --------------------------
-    def f_per_particle(self, m, s):
-        X = m  # decoded sequence
-        V = s  # decoded vehicle vector
-        obj_val = self.preserving_strategy(X, V)  # Call Preserving strategy.
-        return obj_val
-
-    # --------------------------
     # Decode a chromosome to (sequence, vehicle) and evaluate
     # --------------------------
-    def objective_func(self, x):
+    def objective_func(self, population: np.ndarray) -> float:
         vehicle = self._info["vehicle"]
         # First block → customer order (rank-based decoding): smaller value → earlier visit
-        seq = x[: -vehicle[0]].argsort() + 1
+        seq = population[: -vehicle[0]].argsort() + 1
         # Last 'num_vehicles' genes → vehicle order/index (again rank-based)
-        sort = x[-vehicle[0] :].argsort()
-        j = self.f_per_particle(seq, sort)
-        return j
+        sort = population[-vehicle[0] :].argsort()
+        obj_val = self.preserving_strategy(seq, sort)
+        return obj_val
 
     # --------------------------
     # Main DE loop
@@ -249,9 +230,7 @@ class VRPTW:
             for i in range(self.population_size):
                 # ---- Mutation (DE/rand/1) ----
                 indices = [idx for idx in range(self.population_size) if idx != i]
-                a, b, c = self.population[
-                    self.local_rng.choice(indices, 3, replace=False)
-                ]
+                b, c = self.population[self.local_rng.choice(indices, 2, replace=False)]
                 mutant = self.population[i] + self.F_rate * (b - c)
 
                 # (Optional) You might want to clip mutant to bounds to avoid runaway values:
@@ -560,27 +539,31 @@ class VRPTW:
 
 
 if __name__ == "__main__":
-    distance = (
-        pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="distance")
-        .fillna(9999999)
-        .to_numpy()
-    )
+    PROBLEM_SET = "LARGE"  # Options: "SMALL", "LARGE"
+    POPULATION_SIZE = 40
+    VERBOSE = 0
+    PATIENCE = 4000
 
-    df_vehicle = (
-        pd.read_excel(r"./src/Source/rl_meta_test_data.xlsx", sheet_name="vehicle")
-        .iloc[:, :2]
-        .to_numpy(dtype=int)
-    )
-    vehicle = df_vehicle[0]
-    df_101 = pd.read_excel(
-        r"./src/Source/rl_meta_test_data.xlsx", sheet_name="customer"
-    ).iloc[:, 3:]
-    demand = df_101.iloc[:, 0].to_numpy()
-    readyTime = df_101.iloc[:, 1].to_numpy()
-    dueDate = df_101.iloc[:, 2].to_numpy()
-    serviceTime = df_101.iloc[:, -1].to_numpy()
-    dimensions = len(distance) - 1 + vehicle[0]
-    population_size = 4
+    if PROBLEM_SET == "SMALL":
+        excel_file = "./src/Source/rl_meta_test_data.xlsx"
+    elif PROBLEM_SET == "LARGE":
+        excel_file = "./src/Source/rl_meta_test_data_25_customer.xlsx"
+
+    # Load distance data
+    df_distance = pd.read_excel(excel_file, sheet_name="distance")
+    distance = df_distance.fillna(9999999).to_numpy()
+    # Load vehicle data
+    df_vehicle = pd.read_excel(excel_file, sheet_name="vehicle")
+    vehicle = df_vehicle.loc[0, "fleet_size":"fleet_capacity"].values
+    # Load customer data
+    df_customer = pd.read_excel(excel_file, sheet_name="customer")
+    demand = df_customer.loc[:, "demand"].to_numpy()
+    readyTime = df_customer.loc[:, "readyTime"].to_numpy()
+    dueDate = df_customer.loc[:, "dueTime"].to_numpy()
+    serviceTime = df_customer.loc[:, "duration"].to_numpy()
+    dimensions = distance.shape[0] - 1 + vehicle[0]
+    #
+    population_size = POPULATION_SIZE
     bounds = (0, 1)
 
     _info_vrptw = {
@@ -595,29 +578,66 @@ if __name__ == "__main__":
         "bounds": bounds,
     }
 
-    _info_RL = {
-        "sc_F": LinearScaler(bounds=(0, 1), bounds_scaled=(-0.5, 0.5)),
-        "sc_CR": LinearScaler(bounds=(0, 1), bounds_scaled=(-0.5, 0.5)),
-        "sc_MG": LinearScaler(bounds=(0, 1), bounds_scaled=(-0.5, 0.5)),
-        "sc_solution": LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
-        "sc_iteration": LinearScaler(bounds=(0, 1e4), bounds_scaled=(0, 10)),
-        "interval_it": 10,
-        "target_solution": 40,
-        "alpha_target": 10,
-        "alpha_patience": 5,
-        "patience": 200,
-        "verbose": 1,
-    }
+    if PROBLEM_SET == "SMALL":
+        _info_RL = {
+            "sc_F": LinearScaler(
+                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_CR": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_MG": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_solution": LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
+            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            "interval_it": 10,
+            "target_solution": 40,
+            "alpha_target": 10,
+            "alpha_patience": 5,
+            "patience": PATIENCE,
+            "verbose": VERBOSE,
+        }
+    elif PROBLEM_SET == "LARGE":
+        _info_RL = {
+            "sc_F": LinearScaler(
+                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_CR": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_MG": LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            "sc_solution": LinearScaler(bounds=(0, 1000), bounds_scaled=(0, 1)),
+            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            "interval_it": 10,
+            "target_solution": 190,
+            "alpha_target": 10,
+            "alpha_patience": 5,
+            "patience": PATIENCE,
+            "verbose": VERBOSE,
+        }
 
     vrptw = VRPTW(**_info_vrptw, **_info_RL)
 
     vrptw.reset()
     start = time.time()
-    for i in range(10):
+    idx = -1
+    while not vrptw.is_terminated():
+        idx += 1
         vrptw.evolve()
         vrptw.migration()
-        vrptw.get_reward()
-        vrptw.calc_convergence_rate()
+        reward = vrptw.get_reward()
+        if idx % 100 == 0:
+            best_solution = (
+                vrptw.global_solution_history[-1]
+                if len(vrptw.global_solution_history) > 0
+                else "N/A"
+            )
+            print(
+                f"Idx: {idx}, Best Solution: {best_solution:4.3f}, Reward: {reward:4.3f}, F: {vrptw.F_rate:4.3f}, CR: {vrptw.CR_rate:4.3f}, MG: {vrptw.MG_rate:4.3f}, Patience Remaining: {vrptw.patience_remaining}"
+            )
 
     end = time.time()
     computational_time = end - start
