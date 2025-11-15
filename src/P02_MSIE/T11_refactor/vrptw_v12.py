@@ -1,9 +1,9 @@
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from .utils import LinearScaler
+from P02_MSIE.T11_refactor.utils import LinearScaler
 
 # SOL_UPPER_BOUND = 1e5
 # VAL_INVALID_STD_POPULATION = 100  # Large value indicating invalid std population
@@ -32,38 +32,57 @@ class VRPTW:
     readyTime: np.ndarray
     dueDate: np.ndarray
     serviceTime: np.ndarray
-    vehicle: np.ndarray  # TODO: Check data type
+    vehicle: np.ndarray
     # RL
     interval_it: int  # Interval iteration between action
     patience: int  # Patience for early stopping
     target_solution: float  # Target solution (unscaled)
-    alpha_target: float = 1  # Weight for reward contribution from hitting target
-    alpha_patience: float = 10  # How fast reward decay if not improving
-    sc_solution: LinearScaler  # Scaler for solution
+    sc_solution: LinearScaler  # Scaler for solution cost
     sc_iteration: LinearScaler  # Scaler for iteration
     sc_F: LinearScaler  # Scaler for mutation factor F
     sc_CR: LinearScaler  # Scaler for crossover rate CR
     sc_MG: LinearScaler  # Scaler for migration rate MG
-    sc_std_population: LinearScaler  # Scaler for std population
-    verbose = 0  # Verbosity level
+    alpha_target: float = 1  # Weight for reward contribution from hitting target
+    alpha_patience: float = 10  # How fast reward decay if not improving
+    verbose: int = 0  # Verbosity level
 
     # ----- Internals -----
-    _info = {}  # Internal storage for problem info
+    _info: dict = field(default_factory=dict)  # Internal storage for problem info
     F_rate: float = 0  # DE mutation factor
     CR_rate: float = 0  # DE crossover rate
     MG_rate: float = 0  # migration rate (fraction of elites)
-    global_solution_history: list = []  # Best fitness per iteration
-    fitness_trial_history: list = []  # Fitness of trial solutions
-    current_cost: np.ndarray = np.array([])  # Current cost values
-    current_fitness_trials: np.ndarray = np.array([])  # Current fitness trial values
-    population: np.ndarray = np.array([])  # Current population
+    global_solution_history: list = field(
+        default_factory=list
+    )  # Best fitness per iteration
+    fitness_trial_history: list = field(
+        default_factory=list
+    )  # Fitness of trial solutions
+    current_cost: np.ndarray = field(
+        default_factory=lambda: np.array([])
+    )  # Current cost values
+    current_fitness_trials: np.ndarray = field(
+        default_factory=lambda: np.array([])
+    )  # Current fitness trial values
+    population: np.ndarray = field(
+        default_factory=lambda: np.array([])
+    )  # Current population
     idx_iteration: int = -1  # Current iteration index
     local_rng: np.random.Generator = (
         np.random.default_rng()
     )  # Local random number generator
-    patience_remaining = 0  # Remaining patience
+    patience_remaining: int = 0  # Remaining patience
 
     def __post_init__(self):
+        # Problem info passed into objective/preserving_strategy
+        self._info = {
+            "distance": self.distance,
+            "demand": self.demand,
+            "readyTime": self.readyTime,
+            "dueDate": self.dueDate,
+            "serviceTime": self.serviceTime,
+            "vehicle": self.vehicle,
+        }
+
         # Check bounds shape
         if self.bounds[0] != 0 and self.bounds[1] != 1:
             raise ValueError(
@@ -350,7 +369,7 @@ class VRPTW:
         # return self.DE_robust
         raise NotImplementedError("calc_robustness is not implemented yet.")
 
-    def calc_std(self, type="cost"):
+    def calc_std(self, type="cost", scaled=False):
         if type == "cost":
             solution_arrays = self.current_cost
         elif type == "trial":
@@ -358,8 +377,10 @@ class VRPTW:
         else:
             raise Exception("Invalid Option")
 
-        std = np.std(self.sc_solution.transform(solution_arrays))
-        return std
+        if not scaled:
+            return np.std(solution_arrays)
+        else:
+            return np.std(self.sc_solution.transform(solution_arrays))
 
     def calc_convergence_rate(self):
         if len(self.global_solution_history) < self.interval_it:
@@ -378,28 +399,42 @@ class VRPTW:
     # Introspection helpers
     # --------------------------
     def get_current_state(self):
-        # Returns DE hyper-parameters and the latest best fitness (scalar).
-
         return {
-            "F": self.F_rate,
-            "CR": self.CR_rate,
-            "MG": self.MG_rate,
-            "best_solution": self.calc_best_solution(),
-            "convergence_rate": self.calc_convergence_rate(),
-            "std_pop": self.calc_std(type="cost"),
-            "total_iteration": (self.idx_iteration + 1) / self.iteration_scale_factor,
-            "best_trial_fitness": self.calc_best_solution(type="trial"),
-            "std_trial_fitness": self.calc_std(type="trial"),
-            "patience_ratio": self.patience_remaining / self.patience,
-            # "DE_robust": self.calc_robustness(), # Not used for now
+            "F_sc": self.sc_F.transform(self.F_rate),
+            "CR_sc": self.sc_CR.transform(self.CR_rate),
+            "MG_sc": self.sc_MG.transform(self.MG_rate),
+            "best_solution_sc": self.sc_solution.transform(
+                self.calc_best_solution(type="cost")
+            ),
+            "convergence_rate": self.calc_convergence_rate(),  # No scaling needed
+            "std_population_sc": self.calc_std(type="cost", scaled=True),
+            "total_iteration_sc": self.sc_iteration.transform(self.idx_iteration + 1),
+            "best_trial_fitness_sc": self.sc_solution.transform(
+                self.calc_best_solution(type="trial")
+            ),
+            "std_trial_fitness_sc": self.calc_std(type="trial", scaled=True),
+            "patience_remaining_sc": self.patience_remaining / self.patience,
         }
 
     def get_info(self):
-        state = self.get_current_state()
-        return {
-            **state,
-            "idx_iteration": self.idx_iteration,
+        state_scaled = self.get_current_state()
+        state = {
+            "F": self.F,
+            "CR": self.CR_rate,
+            "MG": self.MG_rate,
+            "best_solution": self.calc_best_solution(type="cost"),
+            "convergence_rate": self.calc_convergence_rate(),
+            "std_population": self.calc_std(type="cost", scaled=False),
+            "total_iteration": self.idx_iteration + 1,
+            "best_trial_fitness": self.calc_best_solution(type="trial"),
+            "std_trial_fitness": self.calc_std(type="trial", scaled=False),
             "patience_remaining": self.patience_remaining,
+        }
+
+        return {
+            "idx_iteration": self.idx_iteration,
+            **state,
+            **state_scaled,
         }
 
     def calc_best_solution(self, type="cost"):
@@ -421,7 +456,7 @@ class VRPTW:
 
     def is_terminated(self):
         # Check termination conditions based on max iterations or patience.
-        if self.idx_iteration >= self.max_iteration:
+        if self.idx_iteration >= self.sc_iteration.bounds[1]:
             return True
         else:
             if self.patience_remaining <= 0:
@@ -447,35 +482,53 @@ class VRPTW:
         # Compute reward based on the selected mode
         if mode == "TARGET_SIMPLE":
             # Simple reward based on distance to target solution
-            return -self.global_solution_history[-1]
+            return self.sc_solution.transform(self.global_solution_history[-1])
         elif mode == "CUMULATIVE_DIFF":
             # Calculate average reward by comparing best solution history and trial fitness history (shifted by 1)
             best_solution = self.global_solution_history[start_it - 1 : end_it - 1]
             trial_solution = self.fitness_trial_history[start_it:end_it]
-            diff_array = np.array(best_solution) - np.array(trial_solution)
-            reward_ave = np.sum(diff_array) / self.interval_it
+            best_solution_sc = self.sc_solution.transform(
+                best_solution, keep_list=False
+            )  # np array
+            trial_solution_sc = self.sc_solution.transform(
+                trial_solution, keep_list=False
+            )  # np array
+            reward_ave = np.sum(best_solution_sc - trial_solution_sc) / self.interval_it
             return reward_ave
         elif mode in ["TARGET_ENHANCED_1", "TARGET_ENHANCED_2"]:
             epsilon_target = 1e-6  # Prevent division by zero
+
+            # Calculate improvement over the interval
             improvement = (
                 self.global_solution_history[start_it]
                 - self.global_solution_history[self.idx_iteration]
             )
+            improvement_sc = self.sc_solution.transform(improvement)
+
+            # Get current best solution
             value = self.global_solution_history[-1]
+            value_sc = self.sc_solution.transform(value)
+
+            # Get target solution (scaled)
+            target_solution_sc = self.sc_solution.transform(self.target_solution)
+
+            # Calculate closeness to target solution
             close_to_target = 1 / (
-                np.abs(value - self.target_solution) + epsilon_target
+                np.abs(value_sc - target_solution_sc) + epsilon_target
             )
             if self.verbose > 0:
                 print(
-                    f"Improvement: {improvement}, Close to target: {close_to_target * self.alpha_target}"
+                    f"Improvement: {improvement_sc}, Close to target: {close_to_target * self.alpha_target}"
                 )
-            reward_1 = improvement + self.alpha_target * close_to_target
+
+            # Calculate final reward
+            reward_1 = improvement_sc + self.alpha_target * close_to_target
 
             if mode == "TARGET_ENHANCED_1":
                 return reward_1
             elif mode == "TARGET_ENHANCED_2":
                 # Reset patience if there is an improvement between start_it and current
-                if improvement > 0:
+                if improvement_sc > 0:
                     self.patience_remaining = self.patience  # Reset patience
 
                 # Scaled by patience
@@ -484,15 +537,11 @@ class VRPTW:
                 reward_2 = reward_1 * patience_factor
                 if self.verbose > 0:
                     print(
-                        f"Improvement: {improvement}, Close to target: {close_to_target * self.alpha_target}, Reward before: {reward_1}, p_factor: {patience_factor}, Reward after: {reward_2}"
+                        f"Improvement: {improvement_sc}, Close to target: {close_to_target * self.alpha_target}, Reward before: {reward_1}, p_factor: {patience_factor}, Reward after: {reward_2}"
                     )
                 return reward_2
         else:
             raise Exception("Invalid Option")
-
-    def set_target_solution(self, target_solution_unscaled):
-        self.target_solution_unscaled = target_solution_unscaled
-        self.target_solution = target_solution_unscaled / self.solution_scale_factor
 
     def minmax_scaling(self, arr):
         # Find the minimum and maximum values in the array
@@ -523,7 +572,6 @@ if __name__ == "__main__":
         .to_numpy(dtype=int)
     )
     vehicle = df_vehicle[0]
-
     df_101 = pd.read_excel(
         r"./src/Source/rl_meta_test_data.xlsx", sheet_name="customer"
     ).iloc[:, 3:]
@@ -531,36 +579,37 @@ if __name__ == "__main__":
     readyTime = df_101.iloc[:, 1].to_numpy()
     dueDate = df_101.iloc[:, 2].to_numpy()
     serviceTime = df_101.iloc[:, -1].to_numpy()
+    dimensions = len(distance) - 1 + vehicle[0]
+    population_size = 4
+    bounds = (0, 1)
 
-    kwargs = {
+    _info_vrptw = {
         "distance": distance,
         "demand": demand,
         "readyTime": readyTime,
         "dueDate": dueDate,
         "serviceTime": serviceTime,
         "vehicle": vehicle,
+        "population_size": population_size,
+        "dimensions": dimensions,
+        "bounds": bounds,
     }
 
-    dimensions = len(distance) - 1 + vehicle[0]
-    population_size = 4
-    bounds = [0, 1]
+    _info_RL = {
+        "sc_F": LinearScaler(bounds=(0, 1), bounds_scaled=(-0.5, 0.5)),
+        "sc_CR": LinearScaler(bounds=(0, 1), bounds_scaled=(-0.5, 0.5)),
+        "sc_MG": LinearScaler(bounds=(0, 1), bounds_scaled=(-0.5, 0.5)),
+        "sc_solution": LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
+        "sc_iteration": LinearScaler(bounds=(0, 1e4), bounds_scaled=(0, 10)),
+        "interval_it": 10,
+        "target_solution": 40,
+        "alpha_target": 10,
+        "alpha_patience": 5,
+        "patience": 200,
+        "verbose": 1,
+    }
 
-    vrptw = VRPTW(
-        population_size=population_size,
-        dimensions=dimensions,
-        bounds=bounds,
-        distance=distance,
-        demand=demand,
-        readyTime=readyTime,
-        dueDate=dueDate,
-        serviceTime=serviceTime,
-        vehicle=vehicle,
-        target_solution_unscaled=40,
-        solution_scale_factor=1,
-        alpha_target=10,
-        alpha_patience=5,
-        verbose=1,
-    )
+    vrptw = VRPTW(**_info_vrptw, **_info_RL)
 
     vrptw.reset()
     start = time.time()

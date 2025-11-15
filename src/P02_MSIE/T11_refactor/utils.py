@@ -15,10 +15,15 @@ class LinearScaler:
     def __post_init__(self):
         pass
 
-    def transform(self, value):
-        if np.any(value < self.bounds[0]) or np.any(value > self.bounds[1]):
+    def transform(self, vin, keep_list=False):
+        is_list = False
+        if type(vin) in [list, tuple]:
+            is_list = True
+            vin = np.array(vin)
+
+        if np.any(vin < self.bounds[0]) or np.any(vin > self.bounds[1]):
             raise ValueError(
-                f"Value {value} out of bounds for scaling. bounds: {self.bounds}"
+                f"Value {vin} out of bounds for scaling. bounds: {self.bounds}"
             )
 
         # Min-max scaling to new bounds
@@ -28,20 +33,24 @@ class LinearScaler:
             # Handle the case where the old range is a single point
             return (
                 new_min
-                if value == old_min
+                if vin == old_min
                 else ValueError("Cannot scale value outside of the old bounds.")
             )
-        scaled_value = new_min + ((value - old_min) * (new_max - new_min)) / (
+        scaled_value = new_min + ((vin - old_min) * (new_max - new_min)) / (
             old_max - old_min
         )
+        if keep_list and is_list:
+            return scaled_value.tolist()
         return scaled_value
 
-    def inverse_transform(self, value):
-        if np.any(value < self.bounds_scaled[0]) or np.any(
-            value > self.bounds_scaled[1]
-        ):
+    def inverse_transform(self, vin, keep_list=False):
+        is_list = False
+        if type(vin) in [list, tuple]:
+            is_list = True
+            vin = np.array(vin)
+        if np.any(vin < self.bounds_scaled[0]) or np.any(vin > self.bounds_scaled[1]):
             raise ValueError(
-                f"Value {value} out of bounds for inverse scaling. bounds_scaled: {self.bounds_scaled}"
+                f"Value {vin} out of bounds for inverse scaling. bounds_scaled: {self.bounds_scaled}"
             )
 
         # Inverse min-max scaling to original bounds
@@ -51,12 +60,14 @@ class LinearScaler:
             # Handle the case where the new range is a single point
             return (
                 old_min
-                if value == new_min
+                if vin == new_min
                 else ValueError("Cannot inverse scale value outside of the new bounds.")
             )
-        original_value = old_min + ((value - new_min) * (old_max - old_min)) / (
+        original_value = old_min + ((vin - new_min) * (old_max - old_min)) / (
             new_max - new_min
         )
+        if keep_list and is_list:
+            return original_value.tolist()
         return original_value
 
     def clip_to_bounds(self, value, scaled=False):
