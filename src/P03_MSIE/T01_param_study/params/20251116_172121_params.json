@@ -1,0 +1,104 @@
+{
+    "problem_set": "LARGE",
+    "population_size": 20,
+    "sc_F": {
+        "bounds": [
+            -10,
+            10
+        ],
+        "bounds_scaled": [
+            -0.5,
+            0.5
+        ],
+        "invalid_value": null,
+        "starting_value": 0.5
+    },
+    "sc_CR": {
+        "bounds": [
+            0,
+            1
+        ],
+        "bounds_scaled": [
+            -0.5,
+            0.5
+        ],
+        "invalid_value": null,
+        "starting_value": 0.5
+    },
+    "sc_MG": {
+        "bounds": [
+            0,
+            1
+        ],
+        "bounds_scaled": [
+            -0.5,
+            0.5
+        ],
+        "invalid_value": null,
+        "starting_value": 0.5
+    },
+    "sc_solution": {
+        "bounds": [
+            0,
+            2000
+        ],
+        "bounds_scaled": [
+            0,
+            2
+        ],
+        "invalid_value": null,
+        "starting_value": null
+    },
+    "sc_iteration": {
+        "bounds": [
+            0,
+            100000.0
+        ],
+        "bounds_scaled": [
+            0,
+            10
+        ],
+        "invalid_value": null,
+        "starting_value": null
+    },
+    "interval_it": 10,
+    "target_solution": 190,
+    "reward_params": {
+        "reward_mode": "TARGET_ENHANCED_3",
+        "alpha_target": 1,
+        "alpha_patience": 10,
+        "s": 2.0,
+        "c": 0.1
+    },
+    "patience": 800,
+    "verbose": 0,
+    "convert_none_seed_to_number": false,
+    "current_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T01_param_study",
+    "save_interval_seconds": 0,
+    "learn_timesteps": 0,
+    "run_name": "RL vs Fixed Params Evaluation",
+    "run_description": "Experiment to evaluate RL model against fixed parameter settings on large VRPTW instances.",
+    "run_type": "",
+    "load_folder": "R_20251116_091553",
+    "file_prefix": "int",
+    "load_it": 63924,
+    "date_prefix": "20251116_172121",
+    "log_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T01_param_study/logs",
+    "logger_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T01_param_study/logs/20251116_172121_training.csv",
+    "monitor_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T01_param_study/logs/20251116_172121_monitor.csv",
+    "F_range": [
+        -5
+    ],
+    "CR_range": [
+        0,
+        0.5,
+        1
+    ],
+    "MG_range": [
+        0,
+        0.5,
+        1
+    ],
+    "NUM_REPEATS": 20,
+    "WITH_RL": false
+}
