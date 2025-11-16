@@ -351,6 +351,8 @@ class SIM_INPUT_PARAMS:
     current_dir: str
     save_interval_seconds: int
     learn_timesteps: int
+    run_name: str = ""
+    run_description: str = ""
     run_type: str = "NEW"  # Options: "NEW", "LOAD"
     load_folder: str = ""
     file_prefix: str = ""

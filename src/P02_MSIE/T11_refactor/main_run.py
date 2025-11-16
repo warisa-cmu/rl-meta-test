@@ -14,6 +14,8 @@ from P02_MSIE.T11_refactor.vrptw_v12 import (
     load_vrptw,
 )
 
+RUN_NAME = ""
+RUN_DESCRIPTION = ""
 RUN_TYPE = "NEW"
 LEARN_TIMESTEPS = 400000
 PROBLEM_SET = "LARGE"
@@ -22,13 +24,16 @@ LOAD_FOLDER = ""
 FILE_PREFIX = ""
 LOAD_IT = 0
 
+
+# RUN_NAME = ""
+# RUN_DESCRIPTION = ""
 # RUN_TYPE = "LOAD"
 # LEARN_TIMESTEPS = 2000
 # PROBLEM_SET = "LARGE"
 # LOAD_FOLDER = "R_20251116_085826"
 # FILE_PREFIX = "int"
 # LOAD_IT = 834
-# SAVE_INTERVAL_SECONDS = 1 * 60  # 1 minute
+# SAVE_INTERVAL_SECONDS = 8 * 60  # 8 minutes
 
 # VRPTW parameters
 POPULATION_SIZE = 20
@@ -43,23 +48,15 @@ vpr_input_params = VRPTW_INPUT_PARAMS(
     population_size=POPULATION_SIZE,
 )
 
-if RUN_TYPE == "NEW":
-    sim_input_params = SIM_INPUT_PARAMS(
-        run_type=RUN_TYPE,
-        current_dir=pathlib.Path(__file__).parent.resolve(),
-        save_interval_seconds=SAVE_INTERVAL_SECONDS,
-        learn_timesteps=LEARN_TIMESTEPS,
-    )
-elif RUN_TYPE == "LOAD":
-    sim_input_params = SIM_INPUT_PARAMS(
-        run_type=RUN_TYPE,
-        current_dir=pathlib.Path(__file__).parent.resolve(),
-        save_interval_seconds=SAVE_INTERVAL_SECONDS,
-        learn_timesteps=LEARN_TIMESTEPS,
-        load_folder=LOAD_FOLDER,
-        file_prefix=FILE_PREFIX,
-        load_it=LOAD_IT,
-    )
+sim_input_params = SIM_INPUT_PARAMS(
+    run_type=RUN_TYPE,
+    current_dir=pathlib.Path(__file__).parent.resolve(),
+    save_interval_seconds=SAVE_INTERVAL_SECONDS,
+    learn_timesteps=LEARN_TIMESTEPS,
+    load_folder=LOAD_FOLDER,
+    file_prefix=FILE_PREFIX,
+    load_it=LOAD_IT,
+)
 
 
 if vpr_input_params.problem_set == "SMALL":
