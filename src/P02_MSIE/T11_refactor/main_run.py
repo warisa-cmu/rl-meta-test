@@ -15,9 +15,9 @@ from P02_MSIE.T11_refactor.vrptw_v12 import (
 )
 
 RUN_TYPE = "NEW"
-LEARN_TIMESTEPS = 2000
-PROBLEM_SET = "SMALL"
-SAVE_INTERVAL_SECONDS = 1 * 60  # 1 minute
+LEARN_TIMESTEPS = 400000
+PROBLEM_SET = "LARGE"
+SAVE_INTERVAL_SECONDS = 8 * 60
 LOAD_FOLDER = ""
 FILE_PREFIX = ""
 LOAD_IT = 0
@@ -31,10 +31,10 @@ LOAD_IT = 0
 # SAVE_INTERVAL_SECONDS = 1 * 60  # 1 minute
 
 # VRPTW parameters
-POPULATION_SIZE = 40
+POPULATION_SIZE = 20
 
 # RL parameters
-PATIENCE = 200
+PATIENCE = 800
 VERBOSE = 0
 
 
@@ -86,7 +86,7 @@ if vpr_input_params.problem_set == "SMALL":
         ),
         patience=PATIENCE,
         verbose=VERBOSE,
-        convert_none_seed_to_number=True,
+        convert_none_seed_to_number=False,
     )
 
 elif vpr_input_params.problem_set == "LARGE":
@@ -113,7 +113,7 @@ elif vpr_input_params.problem_set == "LARGE":
         ),
         patience=PATIENCE,
         verbose=VERBOSE,
-        convert_none_seed_to_number=True,
+        convert_none_seed_to_number=False,
     )
 
 # Initialize the model
