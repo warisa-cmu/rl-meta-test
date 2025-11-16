@@ -1,8 +1,10 @@
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
 from P02_MSIE.T11_refactor.utils import LinearScaler, RewardParams
 
 
@@ -562,17 +564,36 @@ class VRPTW:
         return normalized_array
 
 
-if __name__ == "__main__":
-    PROBLEM_SET = "LARGE"  # Options: "SMALL", "LARGE"
-    POPULATION_SIZE = 40
-    VERBOSE = 0
-    PATIENCE = 4000
-    REWARD_MODE = "TARGET_ENHANCED_3"
+@dataclass
+class VRPTW_INPUT_PARAMS:
+    problem_set: str
+    population_size: int
 
-    if PROBLEM_SET == "SMALL":
+
+@dataclass
+class RL_INPUT_PARAMS:
+    sc_F: LinearScaler
+    sc_CR: LinearScaler
+    sc_MG: LinearScaler
+    sc_solution: LinearScaler
+    sc_iteration: LinearScaler
+    interval_it: int
+    target_solution: float
+    reward_params: RewardParams
+    patience: int
+    verbose: int
+    convert_none_seed_to_number: bool
+
+
+def load_vrptw(
+    vrptw_input_params: VRPTW_INPUT_PARAMS, rl_input_params: RL_INPUT_PARAMS
+):
+    if vrptw_input_params.problem_set == "SMALL":
         excel_file = "./src/Source/rl_meta_test_data.xlsx"
-    elif PROBLEM_SET == "LARGE":
+    elif vrptw_input_params.problem_set == "LARGE":
         excel_file = "./src/Source/rl_meta_test_data_25_customer.xlsx"
+    else:
+        raise ValueError("Invalid problem_set. Choose either 'SMALL' or 'LARGE'.")
 
     # Load distance data
     df_distance = pd.read_excel(excel_file, sheet_name="distance")
@@ -588,7 +609,6 @@ if __name__ == "__main__":
     serviceTime = df_customer.loc[:, "duration"].to_numpy()
     dimensions = distance.shape[0] - 1 + vehicle[0]
     #
-    population_size = POPULATION_SIZE
     bounds = (0, 1)
 
     _info_vrptw = {
@@ -598,63 +618,84 @@ if __name__ == "__main__":
         "dueDate": dueDate,
         "serviceTime": serviceTime,
         "vehicle": vehicle,
-        "population_size": population_size,
+        "population_size": vrptw_input_params.population_size,
         "dimensions": dimensions,
         "bounds": bounds,
     }
-
-    if PROBLEM_SET == "SMALL":
-        _info_RL = {
-            "sc_F": LinearScaler(
-                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
-            ),
-            "sc_CR": LinearScaler(
-                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
-            ),
-            "sc_MG": LinearScaler(
-                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
-            ),
-            "sc_solution": LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
-            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
-            "interval_it": 10,
-            "target_solution": 40,
-            "reward_params": RewardParams(
-                reward_mode=REWARD_MODE,
-                alpha_target=1,
-                alpha_patience=10,
-                s=2.0,
-                c=0.1,
-            ),
-            "patience": PATIENCE,
-            "verbose": VERBOSE,
-        }
-    elif PROBLEM_SET == "LARGE":
-        _info_RL = {
-            "sc_F": LinearScaler(
-                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
-            ),
-            "sc_CR": LinearScaler(
-                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
-            ),
-            "sc_MG": LinearScaler(
-                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
-            ),
-            "sc_solution": LinearScaler(bounds=(0, 1000), bounds_scaled=(0, 1)),
-            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
-            "interval_it": 10,
-            "target_solution": 190,
-            "reward_params": RewardParams(
-                reward_mode=REWARD_MODE,
-                alpha_target=1,
-                alpha_patience=10,
-                s=2.0,
-                c=0.1,
-            ),
-            "patience": PATIENCE,
-            "verbose": VERBOSE,
-        }
-
+    #
+    # Cannot as asdict directly due to possible nested dataclasses
+    # _info_RL = asdict(params_RL) # This does not work for nested dataclasses
+    _info_RL = {
+        f.name: getattr(rl_input_params, f.name) for f in fields(rl_input_params)
+    }
+    #
     vrptw = VRPTW(**_info_vrptw, **_info_RL)
+    return vrptw
+
+
+if __name__ == "__main__":
+    vpr_input_params = VRPTW_INPUT_PARAMS(
+        problem_set="SMALL",  # Options: "SMALL", "LARGE"
+        population_size=40,
+    )
+    PATIENCE = 200
+    VERBOSE = 0
+
+    if vpr_input_params.problem_set == "SMALL":
+        rl_input_params = RL_INPUT_PARAMS(
+            sc_F=LinearScaler(
+                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            sc_CR=LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            sc_MG=LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            sc_solution=LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
+            sc_iteration=LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            interval_it=10,
+            target_solution=40,
+            reward_params=RewardParams(
+                reward_mode="TARGET_ENHANCED_3",
+                alpha_target=1,
+                alpha_patience=10,
+                s=2.0,
+                c=0.1,
+            ),
+            patience=PATIENCE,
+            verbose=VERBOSE,
+            convert_none_seed_to_number=True,
+        )
+
+    elif vpr_input_params.problem_set == "LARGE":
+        rl_input_params = RL_INPUT_PARAMS(
+            sc_F=LinearScaler(
+                bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            sc_CR=LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            sc_MG=LinearScaler(
+                bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
+            ),
+            sc_solution=LinearScaler(bounds=(0, 2000), bounds_scaled=(0, 2)),
+            sc_iteration=LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            interval_it=10,
+            target_solution=190,
+            reward_params=RewardParams(
+                reward_mode="TARGET_ENHANCED_3",
+                alpha_target=1,
+                alpha_patience=10,
+                s=2.0,
+                c=0.1,
+            ),
+            patience=PATIENCE,
+            verbose=VERBOSE,
+            convert_none_seed_to_number=True,
+        )
+
+    vrptw = load_vrptw(vpr_input_params, rl_input_params)
 
     vrptw.reset()
     start = time.time()

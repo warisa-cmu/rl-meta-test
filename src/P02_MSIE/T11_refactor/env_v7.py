@@ -3,6 +3,7 @@ import pathlib
 import pickle
 import time
 from datetime import datetime
+from dataclasses import dataclass, field
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
@@ -18,7 +19,12 @@ from stable_baselines3.common.logger import CSVOutputFormat, Logger
 from stable_baselines3.common.monitor import Monitor
 
 from P02_MSIE.T11_refactor.utils import LinearScaler, RewardParams
-from P02_MSIE.T11_refactor.vrptw_v12 import VRPTW
+from P02_MSIE.T11_refactor.vrptw_v12 import (
+    VRPTW,
+    VRPTW_INPUT_PARAMS,
+    RL_INPUT_PARAMS,
+    load_vrptw,
+)
 
 
 class RLMH_ENV(gym.Env):
@@ -340,118 +346,111 @@ class CustomCallback(BaseCallback):
         self.save_model(mode="interval")
 
 
+@dataclass
+class SIM_INPUT_PARAMS:
+    current_dir: str
+    save_interval_seconds: int
+    learn_timesteps: int
+    run_type: str = "NEW"  # Options: "NEW", "LOAD"
+    load_folder: str = ""
+    file_prefix: str = ""
+    load_it: int = 0
+    date_prefix: str = field(
+        default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    log_dir: str = field(init=False)
+    logger_filepath: str = field(init=False)
+    monitor_filepath: str = field(init=False)
+
+    def __post_init__(self):
+        self.log_dir = f"{self.current_dir}/logs"
+        os.makedirs(self.log_dir, exist_ok=True)
+        self.logger_filepath = f"{self.log_dir}/{self.date_prefix}_training.csv"
+        self.monitor_filepath = f"{self.log_dir}/{self.date_prefix}_monitor.csv"
+
+        if self.run_type == "LOAD" and (
+            self.load_folder == "" or self.file_prefix == "" or self.load_it == 0
+        ):
+            raise ValueError(
+                "For LOAD run_type, load_folder, load_best_type, and load_it must be specified."
+            )
+
+
 if __name__ == "__main__":
-    CURRENT_DIR = pathlib.Path(__file__).parent.resolve()
+    vpr_input_params = VRPTW_INPUT_PARAMS(
+        problem_set="LARGE",  # Options: "SMALL", "LARGE"
+        population_size=40,
+    )
 
-    PROBLEM_SET = "LARGE"  # Options: "SMALL", "LARGE"
-    POPULATION_SIZE = 4
-    VERBOSE = 0
+    sim_input_params = SIM_INPUT_PARAMS(
+        run_type="NEW",
+        current_dir=pathlib.Path(__file__).parent.resolve(),
+        save_interval_seconds=1 * 60,  # 1 minute
+        learn_timesteps=20000,
+    )
     PATIENCE = 200
-    CONVERT_NONE_SEED_TO_NUMBER = False
-    REWARD_MODE = "TARGET_ENHANCED_3"
+    VERBOSE = 0
 
-    SAVE_INTERVAL_SECONDS = 1 * 60  # 1 minute
-    LEARN_TIMESTEPS = 20000
-
-    if PROBLEM_SET == "SMALL":
-        excel_file = "./src/Source/rl_meta_test_data.xlsx"
-    elif PROBLEM_SET == "LARGE":
-        excel_file = "./src/Source/rl_meta_test_data_25_customer.xlsx"
-
-    # Load distance data
-    df_distance = pd.read_excel(excel_file, sheet_name="distance")
-    distance = df_distance.fillna(9999999).to_numpy()
-    # Load vehicle data
-    df_vehicle = pd.read_excel(excel_file, sheet_name="vehicle")
-    vehicle = df_vehicle.loc[0, "fleet_size":"fleet_capacity"].values
-    # Load customer data
-    df_customer = pd.read_excel(excel_file, sheet_name="customer")
-    demand = df_customer.loc[:, "demand"].to_numpy()
-    readyTime = df_customer.loc[:, "readyTime"].to_numpy()
-    dueDate = df_customer.loc[:, "dueTime"].to_numpy()
-    serviceTime = df_customer.loc[:, "duration"].to_numpy()
-    dimensions = distance.shape[0] - 1 + vehicle[0]
-    #
-    population_size = POPULATION_SIZE
-    bounds = (0, 1)
-
-    _info_vrptw = {
-        "distance": distance,
-        "demand": demand,
-        "readyTime": readyTime,
-        "dueDate": dueDate,
-        "serviceTime": serviceTime,
-        "vehicle": vehicle,
-        "population_size": population_size,
-        "dimensions": dimensions,
-        "bounds": bounds,
-    }
-
-    if PROBLEM_SET == "SMALL":
-        _info_RL = {
-            "sc_F": LinearScaler(
+    if vpr_input_params.problem_set == "SMALL":
+        rl_input_params = RL_INPUT_PARAMS(
+            sc_F=LinearScaler(
                 bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
             ),
-            "sc_CR": LinearScaler(
+            sc_CR=LinearScaler(
                 bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
             ),
-            "sc_MG": LinearScaler(
+            sc_MG=LinearScaler(
                 bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
             ),
-            "sc_solution": LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
-            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
-            "interval_it": 10,
-            "target_solution": 40,
-            "reward_params": RewardParams(
-                reward_mode=REWARD_MODE,
+            sc_solution=LinearScaler(bounds=(0, 100), bounds_scaled=(0, 1)),
+            sc_iteration=LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            interval_it=10,
+            target_solution=40,
+            reward_params=RewardParams(
+                reward_mode="TARGET_ENHANCED_3",
                 alpha_target=1,
                 alpha_patience=10,
                 s=2.0,
                 c=0.1,
             ),
-            "patience": PATIENCE,
-            "verbose": VERBOSE,
-            "convert_none_seed_to_number": CONVERT_NONE_SEED_TO_NUMBER,
-        }
-    elif PROBLEM_SET == "LARGE":
-        _info_RL = {
-            "sc_F": LinearScaler(
+            patience=PATIENCE,
+            verbose=VERBOSE,
+            convert_none_seed_to_number=True,
+        )
+
+    elif vpr_input_params.problem_set == "LARGE":
+        rl_input_params = RL_INPUT_PARAMS(
+            sc_F=LinearScaler(
                 bounds=(-10, 10), bounds_scaled=(-0.5, 0.5), starting_value=0.5
             ),
-            "sc_CR": LinearScaler(
+            sc_CR=LinearScaler(
                 bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
             ),
-            "sc_MG": LinearScaler(
+            sc_MG=LinearScaler(
                 bounds=(0, 1), bounds_scaled=(-0.5, 0.5), starting_value=0.5
             ),
-            "sc_solution": LinearScaler(bounds=(0, 2000), bounds_scaled=(0, 2)),
-            "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
-            "interval_it": 10,
-            "target_solution": 190,
-            "reward_params": RewardParams(
-                reward_mode=REWARD_MODE,
+            sc_solution=LinearScaler(bounds=(0, 2000), bounds_scaled=(0, 2)),
+            sc_iteration=LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
+            interval_it=10,
+            target_solution=190,
+            reward_params=RewardParams(
+                reward_mode="TARGET_ENHANCED_3",
                 alpha_target=1,
                 alpha_patience=10,
                 s=2.0,
                 c=0.1,
             ),
-            "patience": PATIENCE,
-            "verbose": VERBOSE,
-            "convert_none_seed_to_number": CONVERT_NONE_SEED_TO_NUMBER,
-        }
+            patience=PATIENCE,
+            verbose=VERBOSE,
+            convert_none_seed_to_number=True,
+        )
 
-    vrptw = VRPTW(**_info_vrptw, **_info_RL)
-
-    log_dir = f"{CURRENT_DIR}/logs"
-    os.makedirs(log_dir, exist_ok=True)
-    date_prefix = datetime.now().strftime("%Y%m%d_%H%M%S")
-    logger_filepath = f"{log_dir}/{date_prefix}_training.csv"
-    monitor_filepath = f"{log_dir}/{date_prefix}_monitor.csv"
+    vrptw = load_vrptw(vpr_input_params, rl_input_params)
 
     env = RLMH_ENV(vrp=vrptw)
     env = Monitor(
         env,
-        filename=monitor_filepath,
+        filename=sim_input_params.monitor_filepath,
     )
 
     # This will catch many common issues
@@ -460,22 +459,29 @@ if __name__ == "__main__":
         print("Environment passes all checks!")
     except Exception as e:
         print(f"Environment has issues: {e}")
+
+    # Initialize the model
     model = SAC("MlpPolicy", env, verbose=1)
 
     # Set up custom logger
-    logger = Logger(folder=log_dir, output_formats=[CSVOutputFormat(logger_filepath)])
+    logger = Logger(
+        folder=sim_input_params.log_dir,
+        output_formats=[CSVOutputFormat(sim_input_params.logger_filepath)],
+    )
     model.set_logger(logger)
 
     # Define and add the custom callback
     custom_callback = CustomCallback(
         check_freq=1,
-        save_dir=f"{CURRENT_DIR}/saved_models",
-        date_prefix=date_prefix,
-        save_interval_seconds=SAVE_INTERVAL_SECONDS,
+        save_dir=f"{sim_input_params.current_dir}/saved_models",
+        date_prefix=sim_input_params.date_prefix,
+        save_interval_seconds=sim_input_params.save_interval_seconds,
     )
 
     # Start training
-    model.learn(total_timesteps=LEARN_TIMESTEPS, callback=custom_callback)
+    model.learn(
+        total_timesteps=sim_input_params.learn_timesteps, callback=custom_callback
+    )
 
     obs, info = env.reset()
     terminated = False
