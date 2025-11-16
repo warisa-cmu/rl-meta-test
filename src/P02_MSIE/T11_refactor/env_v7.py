@@ -1,8 +1,8 @@
 import os
-from datetime import datetime
 import pathlib
 import pickle
 import time
+from datetime import datetime
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
@@ -14,12 +14,11 @@ from rich.console import Console
 from rich.table import Table
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.logger import Logger
+from stable_baselines3.common.logger import CSVOutputFormat, Logger
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.logger import CSVOutputFormat
 
+from P02_MSIE.T11_refactor.utils import LinearScaler, RewardParams
 from P02_MSIE.T11_refactor.vrptw_v12 import VRPTW
-from P02_MSIE.T11_refactor.utils import LinearScaler
 
 
 class RLMH_ENV(gym.Env):
@@ -349,6 +348,7 @@ if __name__ == "__main__":
     VERBOSE = 0
     PATIENCE = 200
     CONVERT_NONE_SEED_TO_NUMBER = False
+    REWARD_MODE = "TARGET_ENHANCED_3"
 
     SAVE_INTERVAL_SECONDS = 1 * 60  # 1 minute
     LEARN_TIMESTEPS = 20000
@@ -402,8 +402,13 @@ if __name__ == "__main__":
             "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
             "interval_it": 10,
             "target_solution": 40,
-            "alpha_target": 10,
-            "alpha_patience": 5,
+            "reward_params": RewardParams(
+                reward_mode=REWARD_MODE,
+                alpha_target=1,
+                alpha_patience=10,
+                s=2.0,
+                c=0.1,
+            ),
             "patience": PATIENCE,
             "verbose": VERBOSE,
             "convert_none_seed_to_number": CONVERT_NONE_SEED_TO_NUMBER,
@@ -423,8 +428,13 @@ if __name__ == "__main__":
             "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
             "interval_it": 10,
             "target_solution": 190,
-            "alpha_target": 10,
-            "alpha_patience": 5,
+            "reward_params": RewardParams(
+                reward_mode=REWARD_MODE,
+                alpha_target=1,
+                alpha_patience=10,
+                s=2.0,
+                c=0.1,
+            ),
             "patience": PATIENCE,
             "verbose": VERBOSE,
             "convert_none_seed_to_number": CONVERT_NONE_SEED_TO_NUMBER,

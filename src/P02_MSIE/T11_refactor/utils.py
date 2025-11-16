@@ -89,3 +89,12 @@ class LinearScaler:
         if scaled:
             return self.transform(self.starting_value)
         return self.starting_value
+
+
+@dataclass
+class RewardParams:
+    reward_mode: str = "TARGET_ENHANCED_2"  # Options: TARGET_SIMPLE, CUMULATIVE_DIFF, TARGET_ENHANCED_1, TARGET_ENHANCED_2
+    alpha_target: float = 1.0  # Weight for target closeness in enhanced rewards
+    alpha_patience: float = 2.0  # Weight for patience in enhanced rewards
+    s: float = 2.0  # Smooth factor
+    c: float = 1.0  # Slope

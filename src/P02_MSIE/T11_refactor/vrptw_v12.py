@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from P02_MSIE.T11_refactor.utils import LinearScaler
+from P02_MSIE.T11_refactor.utils import LinearScaler, RewardParams
 
 
 @dataclass
@@ -32,8 +32,7 @@ class VRPTW:
     sc_F: LinearScaler  # Scaler for mutation factor F
     sc_CR: LinearScaler  # Scaler for crossover rate CR
     sc_MG: LinearScaler  # Scaler for migration rate MG
-    alpha_target: float = 1  # Weight for reward contribution from hitting target
-    alpha_patience: float = 10  # How fast reward decay if not improving
+    reward_params: RewardParams  # Reward parameters
     verbose: int = 0  # Verbosity level
     convert_none_seed_to_number: bool = (
         True  # During training, seed=None is passed; convert to 42 for reproducibility
@@ -447,7 +446,8 @@ class VRPTW:
             else:
                 return False
 
-    def get_reward(self, mode="TARGET_ENHANCED_2"):
+    def get_reward(self):
+        mode = self.reward_params.reward_mode
         # Take care of the special case where there is not enough history yet
         if len(self.global_solution_history) < 2 or len(self.fitness_trial_history) < 2:
             return 0
@@ -478,7 +478,11 @@ class VRPTW:
             )  # np array
             reward_ave = np.sum(best_solution_sc - trial_solution_sc) / self.interval_it
             return reward_ave
-        elif mode in ["TARGET_ENHANCED_1", "TARGET_ENHANCED_2"]:
+        elif mode in [
+            "TARGET_ENHANCED_1",
+            "TARGET_ENHANCED_2",
+            "TARGET_ENHANCED_3",
+        ]:
             epsilon_target = 1e-6  # Prevent division by zero
 
             # Calculate improvement over the interval
@@ -496,31 +500,47 @@ class VRPTW:
             target_solution_sc = self.sc_solution.transform(self.target_solution)
 
             # Calculate closeness to target solution
-            close_to_target = 1 / (
-                np.abs(value_sc - target_solution_sc) + epsilon_target
-            )
+            alpha_target = self.reward_params.alpha_target
+            if mode == "TARGET_ENHANCED_2":
+                # Inverse difference to target
+                close_to_target = 1 / (
+                    np.abs(value_sc - target_solution_sc) + epsilon_target
+                )
+                # Calculate final reward
+                reward_1 = improvement_sc + alpha_target * close_to_target
+            elif mode == "TARGET_ENHANCED_3":
+                # Huber-like soft distance to target
+                s = self.reward_params.s
+                c = self.reward_params.c
+                d = np.maximum(value_sc - target_solution_sc, 0.0)
+                close_to_target = 1 / (1 + np.power((d / c), s))
+                reward_1 = improvement_sc + alpha_target * close_to_target
             if self.verbose > 0:
                 print(
-                    f"Improvement: {improvement_sc}, Close to target: {close_to_target * self.alpha_target}"
+                    f"Improvement: {improvement_sc}, Close to target: {close_to_target * self.alpha_target}, Reward1: {reward_1}"
                 )
-
-            # Calculate final reward
-            reward_1 = improvement_sc + self.alpha_target * close_to_target
 
             if mode == "TARGET_ENHANCED_1":
                 return reward_1
-            elif mode == "TARGET_ENHANCED_2":
+            elif mode in ["TARGET_ENHANCED_2", "TARGET_ENHANCED_3"]:
                 # Reset patience if there is an improvement between start_it and current
                 if improvement_sc > 0:
                     self.patience_remaining = self.patience  # Reset patience
 
                 # Scaled by patience
+                alpha_patience = self.reward_params.alpha_patience
                 p = float(np.clip(self.patience_remaining / self.patience, 0.0, 1.0))
-                patience_factor = max(0, np.exp(-self.alpha_patience * (1.0 - p)))
-                reward_2 = reward_1 * patience_factor
+                patience_factor = max(0, np.exp(-alpha_patience * (1.0 - p)))
+
+                improvement_bonus = 0
+                if mode == "TARGET_ENHANCED_2":
+                    reward_2 = reward_1 * patience_factor
+                elif mode == "TARGET_ENHANCED_3":
+                    # improvement_bonus = 0.5 if improvement_sc > 0 else 0
+                    reward_2 = reward_1 * patience_factor + improvement_bonus
                 if self.verbose > 0:
                     print(
-                        f"Improvement: {improvement_sc}, Close to target: {close_to_target * self.alpha_target}, Reward before: {reward_1}, p_factor: {patience_factor}, Reward after: {reward_2}"
+                        f"Improvement: {improvement_sc}, Improvement Bonus: {improvement_bonus}, Close to target: {close_to_target * self.alpha_target}, Reward before: {reward_1}, p_factor: {patience_factor}, Reward after: {reward_2}"
                     )
                 return reward_2
         else:
@@ -547,6 +567,7 @@ if __name__ == "__main__":
     POPULATION_SIZE = 40
     VERBOSE = 0
     PATIENCE = 4000
+    REWARD_MODE = "TARGET_ENHANCED_3"
 
     if PROBLEM_SET == "SMALL":
         excel_file = "./src/Source/rl_meta_test_data.xlsx"
@@ -597,8 +618,13 @@ if __name__ == "__main__":
             "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
             "interval_it": 10,
             "target_solution": 40,
-            "alpha_target": 10,
-            "alpha_patience": 5,
+            "reward_params": RewardParams(
+                reward_mode=REWARD_MODE,
+                alpha_target=1,
+                alpha_patience=10,
+                s=2.0,
+                c=0.1,
+            ),
             "patience": PATIENCE,
             "verbose": VERBOSE,
         }
@@ -617,8 +643,13 @@ if __name__ == "__main__":
             "sc_iteration": LinearScaler(bounds=(0, 1e5), bounds_scaled=(0, 10)),
             "interval_it": 10,
             "target_solution": 190,
-            "alpha_target": 10,
-            "alpha_patience": 5,
+            "reward_params": RewardParams(
+                reward_mode=REWARD_MODE,
+                alpha_target=1,
+                alpha_patience=10,
+                s=2.0,
+                c=0.1,
+            ),
             "patience": PATIENCE,
             "verbose": VERBOSE,
         }
