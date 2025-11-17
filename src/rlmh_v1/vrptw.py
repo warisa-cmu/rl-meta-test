@@ -592,6 +592,10 @@ def load_vrptw(
         excel_file = "./src/Source/rl_meta_test_data.xlsx"
     elif vrptw_input_params.problem_set == "LARGE":
         excel_file = "./src/Source/rl_meta_test_data_25_customer.xlsx"
+    elif vrptw_input_params.problem_set == "LARGE2":
+        excel_file = "./src/Source/r101_25customers_datasets.xlsx"
+    elif vrptw_input_params.problem_set == "LARGE3":
+        excel_file = "./src/Source/rc101_25customers_datasets.xlsx"
     else:
         raise ValueError("Invalid problem_set. Choose either 'SMALL' or 'LARGE'.")
 
