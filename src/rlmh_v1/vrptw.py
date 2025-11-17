@@ -1,4 +1,5 @@
 import time
+import warnings
 from dataclasses import dataclass, field, fields
 
 import matplotlib.pyplot as plt
@@ -213,6 +214,14 @@ class VRPTW:
             total_distance += route_dist + penaltyCost
             k += 1  # Next vehicle
 
+        if total_distance > self.sc_solution.bounds[1]:
+            total_distance = self.sc_solution.clip_to_bounds(
+                total_distance, scaled=False
+            )
+            if self.verbose > 0:
+                warnings.warn(
+                    f"Total distance {total_distance} exceeded max bound, clipped."
+                )
         return total_distance  # Return overall objective (distance with penalty if violated)
 
     # --------------------------
