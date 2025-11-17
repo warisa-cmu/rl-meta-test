@@ -1,0 +1,89 @@
+{
+    "problem_set": "LARGE3",
+    "population_size": 20,
+    "sc_F": {
+        "bounds": [
+            -10,
+            10
+        ],
+        "bounds_scaled": [
+            -0.5,
+            0.5
+        ],
+        "invalid_value": null,
+        "starting_value": 0.5
+    },
+    "sc_CR": {
+        "bounds": [
+            0,
+            1
+        ],
+        "bounds_scaled": [
+            -0.5,
+            0.5
+        ],
+        "invalid_value": null,
+        "starting_value": 0.5
+    },
+    "sc_MG": {
+        "bounds": [
+            0,
+            1
+        ],
+        "bounds_scaled": [
+            -0.5,
+            0.5
+        ],
+        "invalid_value": null,
+        "starting_value": 0.5
+    },
+    "sc_solution": {
+        "bounds": [
+            0,
+            2000
+        ],
+        "bounds_scaled": [
+            0,
+            2
+        ],
+        "invalid_value": null,
+        "starting_value": null
+    },
+    "sc_iteration": {
+        "bounds": [
+            0,
+            100000.0
+        ],
+        "bounds_scaled": [
+            0,
+            10
+        ],
+        "invalid_value": null,
+        "starting_value": null
+    },
+    "interval_it": 10,
+    "target_solution": 480,
+    "reward_params": {
+        "reward_mode": "TARGET_ENHANCED_3",
+        "alpha_target": 1,
+        "alpha_patience": 10,
+        "s": 2.0,
+        "c": 0.1
+    },
+    "patience": 800,
+    "verbose": 0,
+    "convert_none_seed_to_number": false,
+    "current_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T05_large_3",
+    "save_interval_seconds": 480,
+    "learn_timesteps": 400000,
+    "run_name": "",
+    "run_description": "",
+    "run_type": "NEW",
+    "load_folder": "",
+    "file_prefix": "",
+    "load_it": 0,
+    "date_prefix": "20251117_190611",
+    "log_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T05_large_3/logs",
+    "logger_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T05_large_3/logs/20251117_190611_training.csv",
+    "monitor_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T05_large_3/logs/20251117_190611_monitor.csv"
+}
