@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from P02_MSIE.T11_refactor.utils import LinearScaler, RewardParams
+from .utils import LinearScaler, RewardParams
 
 
 @dataclass
