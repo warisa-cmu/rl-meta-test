@@ -18,8 +18,8 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import CSVOutputFormat, Logger
 from stable_baselines3.common.monitor import Monitor
 
-from P02_MSIE.T11_refactor.utils import LinearScaler, RewardParams
-from P02_MSIE.T11_refactor.vrptw_v12 import (
+from .utils import LinearScaler, RewardParams
+from .vrptw import (
     VRPTW,
     VRPTW_INPUT_PARAMS,
     RL_INPUT_PARAMS,
