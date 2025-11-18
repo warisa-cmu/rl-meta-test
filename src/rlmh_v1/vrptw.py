@@ -619,7 +619,7 @@ def load_vrptw(
     demand = df_customer.loc[:, "demand"].to_numpy()
     readyTime = df_customer.loc[:, "readyTime"].to_numpy()
     dueDate = df_customer.loc[:, "dueTime"].to_numpy()
-    serviceTime = df_customer.loc[:, "duration"].to_numpy()
+    serviceTime = df_customer.loc[:, "serviceTime"].to_numpy()
     dimensions = distance.shape[0] - 1 + vehicle[0]
     #
     bounds = (0, 1)
