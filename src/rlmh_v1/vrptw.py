@@ -597,16 +597,78 @@ class RL_INPUT_PARAMS:
 def load_vrptw(
     vrptw_input_params: VRPTW_INPUT_PARAMS, rl_input_params: RL_INPUT_PARAMS
 ):
-    if vrptw_input_params.problem_set == "SMALL":
-        excel_file = "./src/Source/rl_meta_test_data.xlsx"
-    elif vrptw_input_params.problem_set == "LARGE":
-        excel_file = "./src/Source/rl_meta_test_data_25_customer.xlsx"
-    elif vrptw_input_params.problem_set == "LARGE2":
-        excel_file = "./src/Source/r101_25customers_datasets.xlsx"
-    elif vrptw_input_params.problem_set == "LARGE3":
-        excel_file = "./src/Source/rc101_25customers_datasets.xlsx"
+    # 25 Customers
+    # C101
+    ## Benchmark Result : Total distance >> 191.30
+    ## Benchmark PSO result : Total distance >> 191.81
+    if vrptw_input_params.problem_set == "c101_25":
+        excel_file = "./src/Source/MSIE_datasets/c101_25_customers.xlsx"
+    # C102
+    ## Benchmark Result : Total distance >> 190.30
+    ## Benchmark PSO result : Total distance >> 190.74
+    elif vrptw_input_params.problem_set == "c102_25":
+        excel_file = "./src/Source/MSIE_datasets/c102_25_customers.xlsx"
+    # C201
+    ## Benchmark Result : Total distance >>  214.70
+    ## Benchmark PSO result : Total distance >>  215.54
+    elif vrptw_input_params.problem_set == "c201_25":
+        excel_file = "./src/Source/MSIE_datasets/c201_25_customers.xlsx"
+
+    # C202
+    ## Benchmark Result : Total distance >>  217.70
+    ## Benchmark PSO result : Total distance >>  223.32
+    elif vrptw_input_params.problem_set == "c202_25":
+        excel_file = "./src/Source/MSIE_datasets/c202_25_customers.xlsx"
+
+    # r101
+    ## Benchmark Result : Total distance >>  617.10
+    ## Benchmark PSO result : Total distance >>  618.33
+    elif vrptw_input_params.problem_set == "r101_25":
+        excel_file = "./src/Source/MSIE_datasets/r101_25_customers.xlsx"
+
+    # r102
+    ## Benchmark Result : Total distance >>   547.10
+    ## Benchmark PSO result : Total distance >>   548.11
+    elif vrptw_input_params.problem_set == "r102_25":
+        excel_file = "./src/Source/MSIE_datasets/r102_25_customers.xlsx"
+
+    # r201
+    ## Benchmark Result : Total distance >>   463.30
+    ## Benchmark PSO result : Total distance >>   523.66
+    elif vrptw_input_params.problem_set == "r201_25":
+        excel_file = "./src/Source/MSIE_datasets/r201_25_customers.xlsx"
+
+    # r202
+    ## Benchmark Result : Total distance >>   410.50
+    ## Benchmark PSO result : Total distance >>   455.53
+    elif vrptw_input_params.problem_set == "r202_25":
+        excel_file = "./src/Source/MSIE_datasets/r202_25_customers.xlsx"
+
+    # rc101
+    ## Benchmark Result : Total distance >>  461.10
+    ## Benchmark PSO result : Total distance >>  462.16
+    elif vrptw_input_params.problem_set == "rc101_25":
+        excel_file = "./src/Source/MSIE_datasets/rc101_25_customers.xlsx"
+
+    # rc102
+    ## Benchmark Result : Total distance >>  351.80
+    ## Benchmark PSO result : Total distance >>  352.74
+    elif vrptw_input_params.problem_set == "rc102_25":
+        excel_file = "./src/Source/MSIE_datasets/rc102_25_customers.xlsx"
+
+    # rc201
+    ## Benchmark Result : Total distance >>  360.20
+    ## Benchmark PSO result : Total distance >>  432.30
+    elif vrptw_input_params.problem_set == "rc201_25":
+        excel_file = "./src/Source/MSIE_datasets/rc201_25_customers.xlsx"
+
+    # rc202
+    ## Benchmark Result : Total distance >>  338.00
+    ## Benchmark PSO result : Total distance >>  376.12
+    elif vrptw_input_params.problem_set == "rc202_25":
+        excel_file = "./src/Source/MSIE_datasets/rc202_25_customers.xlsx"
     else:
-        raise ValueError("Invalid problem_set. Choose either 'SMALL' or 'LARGE'.")
+        raise ValueError("Invalid problem_set.")
 
     # Load distance data
     df_distance = pd.read_excel(excel_file, sheet_name="distance")
