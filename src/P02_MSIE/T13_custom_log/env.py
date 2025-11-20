@@ -19,8 +19,8 @@ from stable_baselines3.common.logger import CSVOutputFormat, Logger
 from stable_baselines3.common.monitor import Monitor
 
 
-from P02_MSIE.T13_custom_log import LinearScaler, RewardParams
-from P02_MSIE.T13_custom_log import (
+from P02_MSIE.T13_custom_log.utils import LinearScaler, RewardParams
+from P02_MSIE.T13_custom_log.vrptw import (
     VRPTW,
     VRPTW_INPUT_PARAMS,
     RL_INPUT_PARAMS,
@@ -323,9 +323,11 @@ class CustomCallback(BaseCallback):
         print("----------------------------------------")
 
     def custom_log(self):
-        self.logger.record(
-            "train/learning_rate", self.model.lr_schedule(self.progress_remaining)
-        )
+        # self.logger.record(
+        #     "train/learning_rate", self.model.lr_schedule(self.progress_remaining)
+        # )
+        logger = self.model.logger
+        print(logger.name_to_value)
         current_obs = self.locals["new_obs"]
         current_reward = self.locals["rewards"]
         is_done = self.locals["dones"]

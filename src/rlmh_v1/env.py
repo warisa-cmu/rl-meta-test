@@ -251,7 +251,7 @@ class CustomCallback(BaseCallback):
                 self.fitness_trial_history = []
                 self.population = None
 
-        self.custom_log()
+        # self.custom_log()
         return True
 
     def save_experiences(self):
