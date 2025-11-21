@@ -1,5 +1,5 @@
 {
-    "problem_set": "r201_25",
+    "problem_set": "rc101_25",
     "population_size": 20,
     "sc_F": {
         "bounds": [
@@ -62,7 +62,7 @@
         "starting_value": null
     },
     "interval_it": 10,
-    "target_solution": 513.1868,
+    "target_solution": 452.9168,
     "reward_params": {
         "reward_mode": "TARGET_ENHANCED_3",
         "alpha_target": 1,
@@ -73,7 +73,7 @@
     "patience": 800,
     "verbose": 0,
     "convert_none_seed_to_number": false,
-    "current_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T17_r201_25",
+    "current_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T13_rc101_25",
     "save_interval_seconds": 480,
     "learn_timesteps": 400000,
     "run_name": "",
@@ -82,8 +82,8 @@
     "load_folder": "",
     "file_prefix": "",
     "load_it": 0,
-    "date_prefix": "20251121_104049",
-    "log_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T17_r201_25/logs",
-    "logger_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T17_r201_25/logs/20251121_104049_training.csv",
-    "monitor_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T17_r201_25/logs/20251121_104049_monitor.csv"
+    "date_prefix": "20251121_141019",
+    "log_dir": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T13_rc101_25/logs",
+    "logger_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T13_rc101_25/logs/20251121_141019_training.csv",
+    "monitor_filepath": "C:\\Users\\admin\\Coding\\research\\rl-meta-test\\src\\P03_MSIE\\T13_rc101_25/logs/20251121_141019_monitor.csv"
 }
