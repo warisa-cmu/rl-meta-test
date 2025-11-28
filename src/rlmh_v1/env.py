@@ -183,6 +183,13 @@ class CustomCallback(BaseCallback):
         if self.save_dir is not None:
             os.makedirs(self.save_dir, exist_ok=True)
 
+        # Create header for custom csv log file
+        log_file = f"{self.model.logger.dir}/{self.date_prefix}_custom.csv"
+        with open(log_file, "a") as f:
+            f.write(
+                "timesteps,best_solution,best_global_value,episode_reward,episode_length\n"
+            )
+
     def _on_training_start(self):
         self._last_save = time.time()
 
@@ -245,6 +252,12 @@ class CustomCallback(BaseCallback):
                     if self.save_interval:
                         self.save_model(mode="interval")
 
+                # Log info to another CSV file
+                log_file = f"{self.model.logger.dir}/{self.date_prefix}_custom.csv"
+                with open(log_file, "a") as f:
+                    f.write(
+                        f"{self.num_timesteps},{best_solution},{self.best_global_value},{episode_reward},{episode_length}\n"
+                    )
                 # Delete experiences
                 self.experiences = []
                 self.global_solution_history = []
