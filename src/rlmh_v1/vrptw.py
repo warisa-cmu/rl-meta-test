@@ -608,13 +608,13 @@ def load_vrptw(
     ## Benchmark PSO result : Total distance >> 191.81
     elif vrptw_input_params.problem_set == "LARGE":
         excel_file = "./src/Source/rl_meta_test_data_25_customer.xlsx"
-        benchmark_result = 456.78
+        benchmark_result = 191.81
     # r101
     ## Benchmark Result : Total distance >>  617.10
     ## Benchmark PSO result : Total distance >>  618.33
     elif vrptw_input_params.problem_set == "LARGE2":
         excel_file = "./src/Source/r101_25customers_datasets.xlsx"
-        benchmark_result = 789.01
+        benchmark_result = 618.33
 
     # rc101
     ## Benchmark Result : Total distance >>  461.10
@@ -629,7 +629,7 @@ def load_vrptw(
     ## Benchmark PSO result : Total distance >> 191.81
     elif vrptw_input_params.problem_set == "c101_25":
         excel_file = "./src/Source/MSIE_datasets/c101_25_customers.xlsx"
-        benchmark_result = 191.81
+        benchmark_result = 191.30
 
     # C102
     ## Benchmark Result : Total distance >> 190.30
